@@ -1,0 +1,25 @@
+--- 
+title: "Neural Network and Deep Learning"
+author: "Guang Yang"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+output: bookdown::gitbook
+documentclass: book
+bibliography: [book.bib, packages.bib]
+biblio-style: apalike
+link-citations: yes
+github-repo: gyang274/dpln
+description: "This is my learning note on Neural Network and Deep Learning by Michael Nielsen."
+---
+
+```{r include=FALSE}
+# automatically create a bib database for R packages
+knitr::write_bib(c(
+  .packages(), 'yg', 'skm'
+), 'packages.bib')
+```
+
+# Preface
+
+__Welcome ...__
+
