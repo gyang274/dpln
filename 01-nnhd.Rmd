@@ -5,7 +5,7 @@
 A perceptron makes decisions by weighing up evidence - a perceptron receives several __binary inputs__, $x_1, x_2, ...$ and produces a single __binary output__:
 
 ```{r nnhd-pptn, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Perceptrons', out.width='30%'}
-knitr::include_graphics("fig/01_tikz0.png")
+knitr::include_graphics("fig/01_tikz00.png")
 ```
 
 In math:
@@ -20,24 +20,24 @@ In math:
 \label{eq:nnhd-pptn}
 \end{equation}
 
-In equation \@ref(eq:pptn), $b$ is called bias - a measure of how easy it is to get the perceptron to output a 1. Or to put it in more biological terms, the bias is a measure of how easy it is to get the perceptron to __fire__.
+In equation \@ref(eq:nnhd-pptn), $b$ is called bias - a measure of how easy it is to get the perceptron to output a 1. Or to put it in more biological terms, the bias is a measure of how easy it is to get the perceptron to __fire__.
 
 Perceptrons can together built to a multi-layer decision making system:
 
 ```{r nnhd-pptm, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Perceptrons can together built to a multi-layer decision making system.', out.width='75%'}
-knitr::include_graphics("fig/01_tikz1.png")
+knitr::include_graphics("fig/01_tikz01.png")
 ```
 
 Perceptrons can realize elementary logical functions such as `AND`, `OR` and `NAND`. The `NAND` gate is significant because any boolean function can be implemented by using a combination of `NAND` gates. This property is called __functional completeness__. It follows that perceptrons are also universal for computation.
 
 ```{r nnhd-pptn-nand, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Perceptrons realize NAND gate.', out.width='40%'}
-knitr::include_graphics("fig/01_tikz2.png")
+knitr::include_graphics("fig/01_tikz02.png")
 ```
 
 Example: use NAND gates and repeatedly perceptrons to build a circuit which adds two bits, $x_1$ and $x_2$ by computing the bitwise sum, $x_1$ &oplus; $x_2$, as well as a carry bit which is set to 1 when both $x_1$ and $x_2$ are 1, i.e., the carry bit is just the bitwise product $x_1x_2$:
 
 ```{r nnhd-pptn-nand-sum, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Perceptrons and NAND gate implementation of sum.', fig.show = 'hold', out.width='50%'}
-knitr::include_graphics(c("fig/01_tikz3.png", "fig/01_tikz4.png"))
+knitr::include_graphics(c("fig/01_tikz03.png", "fig/01_tikz04.png"))
 ```
 
 ## Sigmoid Neuron
@@ -45,7 +45,7 @@ knitr::include_graphics(c("fig/01_tikz3.png", "fig/01_tikz4.png"))
 Motivation of `from Perceptrons to Sigmoid Neuron`: The desire of a small change in a weight (or bias) causes only a small change in output, so that gradually modify the weights and biases make the network getting closer to the desired behaviour.
 
 ```{r nnhd-sn-motivation, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Motivation of using Sigmoid Neuron.', out.width='70%'}
-knitr::include_graphics("fig/01_tikz8.png")
+knitr::include_graphics("fig/01_tikz08.png")
 ```
 
 Sigmoid neurons are similar to perceptrons, but modified so that small changes in their weights and bias cause only a small change in their output. A sigmoid neuron receives inputs of __values between 0 and 1__, and produces output of a __value between 0 and 1__, via the __sigmoid function__:
@@ -80,7 +80,7 @@ __Recurrent neural networks__: The idea in these models is to have neurons which
 ## A simple network to classify handwritten digits
 
 ```{r nnhd-nn-digit, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='The three layer neural networks for recognizing individual digits.', out.width='70%'}
-knitr::include_graphics("fig/01_tikz11.png")
+knitr::include_graphics("fig/01_tikz12.png")
 ```
 
 ## Learning with gradient descent
@@ -168,11 +168,10 @@ See code and note at [source code folder](./src).
 network.py
 ~~~~~~~~~~
 
-A module to implement the stochastic gradient descent learning
-algorithm for a feedforward neural network.  Gradients are calculated
-using backpropagation.  Note that I have focused on making the code
-simple, easily readable, and easily modifiable.  It is not optimized,
-and omits many desirable features.
+A module to implement the stochastic gradient descent learning algorithm for a 
+feedforward neural network.  Gradients are calculated using backpropagation.  
+Note that I have focused on making the code simple, easily readable, and easily
+modifiable.  It is not optimized, and omits many desirable features.
 """
 
 #### Libraries
@@ -185,16 +184,15 @@ import numpy as np
 class Network(object):
 
     def __init__(self, sizes):
-        """The list ``sizes`` contains the number of neurons in the
-        respective layers of the network.  For example, if the list
-        was [2, 3, 1] then it would be a three-layer network, with the
-        first layer containing 2 neurons, the second layer 3 neurons,
-        and the third layer 1 neuron.  The biases and weights for the
-        network are initialized randomly, using a Gaussian
-        distribution with mean 0, and variance 1.  Note that the first
-        layer is assumed to be an input layer, and by convention we
-        won't set any biases for those neurons, since biases are only
-        ever used in computing the outputs from later layers."""
+        """The list ``sizes`` contains the number of neurons in the respective 
+        layers of the network.  For example, if the list was [2, 3, 1] then it
+        would be a three-layer network, with the first layer containing 2 
+        neurons, the second layer 3 neurons, and the third layer 1 neuron.  
+        The biases and weights for the network are initialized randomly, using 
+        a Gaussian distribution with mean 0, and variance 1.  Note that the 
+        first layer is assumed to be an input layer, and by convention we won't 
+        set any biases for those neurons, since biases are only ever used in 
+        computing the outputs from later layers."""
         self.num_layers = len(sizes)
         self.sizes = sizes
         self.biases = [np.random.randn(y, 1) for y in sizes[1:]]
@@ -209,14 +207,13 @@ class Network(object):
 
     def SGD(self, training_data, epochs, mini_batch_size, eta,
             test_data=None):
-        """Train the neural network using mini-batch stochastic
-        gradient descent.  The ``training_data`` is a list of tuples
-        ``(x, y)`` representing the training inputs and the desired
-        outputs.  The other non-optional parameters are
-        self-explanatory.  If ``test_data`` is provided then the
-        network will be evaluated against the test data after each
-        epoch, and partial progress printed out.  This is useful for
-        tracking progress, but slows things down substantially."""
+        """Train the neural network using mini-batch stochastic gradient descent.
+        The ``training_data`` is a list of tuples ``(x, y)`` representing the 
+        training inputs and the desired outputs.  The other non-optional 
+        parameters are self-explanatory.  If ``test_data`` is provided then the
+        network will be evaluated against the test data after each epoch, and 
+        partial progress printed out.  This is useful for tracking progress, 
+        but slows things down substantially."""
         if test_data: n_test = len(test_data)
         n = len(training_data)
         for j in xrange(epochs):
@@ -233,10 +230,9 @@ class Network(object):
                 print "Epoch {0} complete".format(j)
 
     def update_mini_batch(self, mini_batch, eta):
-        """Update the network's weights and biases by applying
-        gradient descent using backpropagation to a single mini batch.
-        The ``mini_batch`` is a list of tuples ``(x, y)``, and ``eta``
-        is the learning rate."""
+        """Update the network's weights and biases by applying gradient descent 
+        using backpropagation to a single mini batch.  The ``mini_batch`` is a 
+        list of tuples ``(x, y)``, and ``eta`` is the learning rate."""
         nabla_b = [np.zeros(b.shape) for b in self.biases]
         nabla_w = [np.zeros(w.shape) for w in self.weights]
         for x, y in mini_batch:
@@ -249,10 +245,10 @@ class Network(object):
                        for b, nb in zip(self.biases, nabla_b)]
 
     def backprop(self, x, y):
-        """Return a tuple ``(nabla_b, nabla_w)`` representing the
-        gradient for the cost function C_x.  ``nabla_b`` and
-        ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
-        to ``self.biases`` and ``self.weights``."""
+        """Return a tuple ``(nabla_b, nabla_w)`` representing the gradient for 
+        the cost function C_x.  ``nabla_b`` and ``nabla_w`` are layer-by-layer 
+        lists of numpy arrays, similar to ``self.biases`` and ``self.weights``.
+        """
         nabla_b = [np.zeros(b.shape) for b in self.biases]
         nabla_w = [np.zeros(w.shape) for w in self.weights]
         # feedforward
@@ -269,12 +265,11 @@ class Network(object):
             sigmoid_prime(zs[-1])
         nabla_b[-1] = delta
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
-        # Note that the variable l in the loop below is used a little
-        # differently to the notation in Chapter 2 of the book.  Here,
-        # l = 1 means the last layer of neurons, l = 2 is the
-        # second-last layer, and so on.  It's a renumbering of the
-        # scheme in the book, used here to take advantage of the fact
-        # that Python can use negative indices in lists.
+        # Note that the variable l in the loop below is used a little differently 
+        # to the notation in Chapter 2 of the book.  Here, l = 1 means the last 
+        # layer of neurons, l = 2 is the second-last layer, and so on.  It's a 
+        # renumbering of the scheme in the book, used here to take advantage of 
+        # the fact that Python can use negative indices in lists.
         for l in xrange(2, self.num_layers):
             z = zs[-l]
             sp = sigmoid_prime(z)
@@ -284,20 +279,20 @@ class Network(object):
         return (nabla_b, nabla_w)
 
     def evaluate(self, test_data):
-        """Return the number of test inputs for which the neural
-        network outputs the correct result. Note that the neural
-        network's output is assumed to be the index of whichever
-        neuron in the final layer has the highest activation."""
+        """Return the number of test inputs for which the neural network outputs
+        the correct result.  Note that the neural network's output is assumed to
+        be the index of whichever neuron in the final layer has the highest 
+        activation."""
         test_results = [(np.argmax(self.feedforward(x)), y)
                         for (x, y) in test_data]
         return sum(int(x == y) for (x, y) in test_results)
 
     def cost_derivative(self, output_activations, y):
-        """Return the vector of partial derivatives \partial C_x /
-        \partial a for the output activations."""
+        """Return the vector of partial derivatives \partial C_x / \partial a 
+        for the output activations."""
         return (output_activations-y)
 
-#### Miscellaneous functions
+#### miscellaneous functions
 def sigmoid(z):
     """The sigmoid function."""
     return 1.0/(1.0+np.exp(-z))
