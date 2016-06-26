@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+_publish.R
+mat/
+_book/
+_bookdown_files/
+*.pyc
+*.wpr
+*.wpu
