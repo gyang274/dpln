@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 _publish.R
+dat/
+doc/
 mat/
 _book/
 _bookdown_files/

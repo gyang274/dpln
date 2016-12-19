@@ -1,0 +1,49 @@
+# A visual proof that neural nets can compute any function {#vsnn}
+
+The universality theorem: __Neural networks with a single hidden layer__ can be used to __approximate__ any __continuous function__ to any __desired precision__.
+
+## Universality with one input and one output
+
+Let $w \to \infty$ and $b = -sw$, then $\sigma(wx+b)$ approximate a step function stepping at $x = s$. Two hidden neurons step up at $s_1$ and step down at $s_2$ resepectively can approximate a bump function over interval $(s_1, s_2)$. An infinite number of such two neurons structure together can appromixate an inifinite disected $\sigma^{-1} \circ f(x)$. As a result, the output from such single hidden layer neural network approximate $f(x)$ to any desired precision.
+
+```{r vsnn-nnup-01, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 1.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz41.png"))
+```
+
+```{r vsnn-nnup-02, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 2.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz42.png"))
+```
+
+```{r vsnn-nnup-03, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 3.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz43.png"))
+```
+
+```{r vsnn-nnup-04, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 4.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz44.png"))
+```
+
+```{r vsnn-nnup-05, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 5.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz45.png"))
+```
+
+```{r vsnn-nnup-06, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 6.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/04_tikz46.png"))
+```
+
+## Universality with multiple input and multiple output
+
+The crucial in universality is constructing the step function and then the bump function on high dimension. A two hidden layer neural network solution is constructing step function on each dimension and combine such step functions into bump function.
+
+```{r vsnn-nnup-07, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 7.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/04_tikz47.png", "fig/04_tikz47_2.png"))
+```
+
+```{r vsnn-nnup-08, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Universality - 8.', fig.show = 'hold', out.width='40%'}
+knitr::include_graphics(c("fig/04_tikz48.png"))
+```
+
+Again, let all weights in the first layer go infinity and bias proportion to weights such that $s_1, t_1, s_2, t_2, \ldots$ are the step points, and the weights in the second layer alternate $+h, -h$ where $h$ is very large, and bias $(-m + 1/2)h$ where $m$ is the input dimension. As a result, such neural network can approximate any multiple input single output continuous function. And, combine $n$ such neural network can approximate any multiple input multiple output continuous function.
+
+## Conclusion
+
+The universality implies neural networks can compute any function. However, deep networks are the networks best adapted to learn the functions useful in solving real-world problems.

@@ -1,17 +1,20 @@
 '''
 #------------------------------------------------------------------------------#
-#--------------------------------- dpln::nnhd ---------------------------------#
+#--------------------------------- dpln::bkpg ---------------------------------#
 #------------------------- author: gyang274@gmail.com -------------------------#
 #------------------------------------------------------------------------------#
 '''
 #------------------------------------------------------------------------------#
-#----- netural network and deep learning - handwritten digit recongnition -----#
+#-------- netural network and deep learning - backpropagation algorithm -------#
 #------------------------------------------------------------------------------#
 '''
 A module to implement the stochastic gradient descent learning algorithm for a
 feedforward neural network.  Gradients are calculated using backpropagation.
 Note that I have focused on making the code simple, easily readable, and easily
 modifiable.  It is not optimized, and omits many desirable features.
+
++ modify network.py with fully matrix-based approach to backpropagation over a
+mini-batch - improve the speed on mnist classification problem by a factor of 2
 '''
 #------------------------------------------------------------------------------#
 
@@ -82,12 +85,12 @@ class Network(object):
     """Update the network's weights and biases by applying gradient descent alg
     using backpropagation to a single mini batch. The `mini_batch` is a list of
     tuples `(x, y)`, and `eta` is the learning rate."""
-    nabla_w = [np.zeros(w.shape) for w in self.weights]
-    nabla_b = [np.zeros(b.shape) for b in self.biases]
-    for x, y in mini_batch:
-      delta_nabla_w, delta_nabla_b = self.backprop(x, y)
-      nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-      nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+    # sequeeze x and y in mini_batch into matrix
+    x = np.array([m[0] for m in mini_batch])
+    y = np.array([m[1] for m in mini_batch])
+    # calculate nabla_w, nabla_b using backpropagation
+    nabla_w, nabla_b = self.backprop_mini_batch(x, y)
+    # update weights and biases using nabla_w, nabla_b from mini_batch
     self.weights = [
       w-(eta/len(mini_batch))*nw for w, nw in zip(self.weights, nabla_w)
     ]
@@ -129,6 +132,40 @@ class Network(object):
     return (nabla_w, nabla_b)
   #
 
+  def backprop_mini_batch(self, x, y):
+    """Return a tuple `(nabla_w, nabla_b)` representing the averge of gradient
+    for the cost function C_{x_1}, ..., C_{x_m}. `nabla_w` and `nabla_b` are
+    layer-by-layer lists of numpy arrays, similar to `self.weights` and
+    `self.biases`."""    
+    nabla_w = [np.zeros(w.shape) for w in self.weights]
+    nabla_b = [np.zeros(b.shape) for b in self.biases]
+    # feedforward
+    activation = x
+    activations = [x] # list to store all the activations, layer by layer
+    zs = [] # list to store all the z vectors, layer by layer
+    for b, w in zip(self.biases, self.weights):
+      z = np.dot(w, activation).swapaxes(0, 1)+b
+      zs.append(z)
+      activation = sigmoid(z)
+      activations.append(activation)    
+    # backward pass
+    delta = self.cost_derivative(activations[-1], y) * sigmoid_prime(zs[-1])
+    nabla_b[-1] = np.sum(delta, axis=0)
+    nabla_w[-1] = np.sum(np.array([np.dot(d, a.transpose()) for d, a in zip(delta, activations[-2])]), axis=0)
+    # Note that the variable l in the loop below is used a little differently to
+    # the notation in Chapter 2 of the book. Here, l = 1 means the last layer of
+    # neurons, and l = 2 is the second-last layer, and so on. It's a renumbering 
+    # of the scheme in the book, used here to take advantage of the fact that is
+    # Python can use negative indices in lists.
+    for l in xrange(2, self.num_layers):
+      z = zs[-l]
+      sp = sigmoid_prime(z)
+      delta = np.dot(self.weights[-l+1].transpose(), delta).swapaxes(0, 1) * sp
+      nabla_b[-l] = np.sum(delta, axis=0)
+      nabla_w[-l] = np.sum(np.array([np.dot(d, a.transpose()) for d, a in zip(delta, activations[-l-1])]), axis=0)
+    return (nabla_w, nabla_b)
+  #
+    
   def evaluate(self, test_data):
     """Return the number of test inputs for which the neural network outputs the
     correct result. Note that the neural network's output is assumed to be the
@@ -143,6 +180,7 @@ class Network(object):
     """Return the vector of partial derivatives \partial C_x / \partial a for
     the output activations."""
     return (output_activations-y)
+  #
   
 #-------------------------- miscellaneous functions ---------------------------#
 def sigmoid(z):
@@ -165,8 +203,8 @@ if __name__ == "__main__":
   import mnist_loader
   training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
   
-  import network
-  net = network.Network([784, 30, 10])
+  import network_matrix
+  net = network_matrix.Network([784, 30, 10])
   net.SGD(training_data, 30, 10, 3.0, test_data=test_data)
 #
 #------------------------------------------------------------------------------#

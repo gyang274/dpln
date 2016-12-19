@@ -1,0 +1,702 @@
+# Improving the way neural networks learn {#ipln}
+
+## The cross-entropy cost function
+
+In information theory, the cross entropy between two probability distributions ${\displaystyle p}$ and ${\displaystyle q}$ over the same underlying set of events measures the average number of __bits__ needed to identify an event drawn from the set, if a coding scheme is used that is optimized for an "unnatural"" probability distribution ${\displaystyle q}$, rather than the "true" distribution ${\displaystyle p}$.
+
+The cross entropy for the distributions ${\displaystyle p}$ and ${\displaystyle q}$ over a given set is defined as follows:
+
+\begin{equation}
+\displaystyle H(p,q) = \operatorname{E}_{p}[-\log q] = H(p) + D_{\mathrm{KL}}(p\|q),
+\end{equation}
+
+where ${\displaystyle H(p)}$ is the entropy of ${\displaystyle p}$, and ${\displaystyle D_{\mathrm {KL}}(p||q)}$ is the Kullback-Leibler divergence of ${\displaystyle q}$ from ${\displaystyle p}$ (also known as the relative entropy of p with respect to q - note the reversal of emphasis).
+
+For discrete ${\displaystyle p}$ and ${\displaystyle q}$ this means
+
+\begin{equation}
+\displaystyle H(p,q) = - \sum_{x} p(x) \log q(x)
+\end{equation}
+
+The situation for continuous distributions is analogous:
+
+\begin{equation}
+\displaystyle H(p,q) = -\int_{X} p(x) \log q(x) dx.
+\end{equation}
+
+NB: The notation ${\displaystyle H(p,q)}$ is also used for a different concept, the joint entropy of ${\displaystyle p}$ and ${\displaystyle q}$.
+
+### Connect output layer activation function with cost function
+
+From Backpropgation $\mbox{BP1}\quad\delta^L = \nabla_a C \odot f'(z^L)$:
+
+1. If sigmoid activation function $a = f(z) = \sigma(z) = \displaystyle \frac{1}{1+e^{-z}}$, and cross-entropy cost function $C = -\sum_{j}\left[y_j\ln(a_j^L)+(1-y_j)\ln(1-a_j^L)\right]$, then $\delta^L = a^L-y$.
+
+2. If linear activation function $a = f(z) = z$, and quadratic cost function $C = \sum_j\left(y_j - a_j^L\right)^2$, then $\delta^L = a^L-y$.
+
+3. If softmax activation function $a_j^L = \displaystyle \frac{e^{z_j^L}}{\sum_k e^{z_k^L}}$, and log-likelihood cost function $C = -\ln(y^Ta^L)$, then $\delta^L = a^L-y$.
+
+Here, $C$ is the cost function of $a^L$ and $f$ is the output layer activation function.
+
+Thus, the rate at which the output layer weights learn is controlled by $\delta^L = \sigma(z^L) - y$, i.e., by the error in the output. The larger the error, the faster the neuron will learn. And, the point of $\delta^L$ isn't about the absolute speed of learning, it is about the how the speed of learning changes as a response to error found.
+
+How to find such cost function with respect to each activation function? Try solve $a - y = \nabla_a C \odot f'(z^L)$.
+
+How to link the learning rate of quadratic cost and cross-entropy cost with respect to sigmoid activation function? A rough general heuristic for relating the learning rate for the cross-entropy and the quadratic cost. The gradient terms for the quadratic cost have an extra $\sigma'=\sigma(1−\sigma)$ term, take average over values for $\sigma$, $\int_o^1\sigma(1-\sigma)=1/6$. Thus, very roughly, the quadratic cost learns an average of 6 times slower, for the same learning rate. This suggests that a reasonable starting point is to divide the learning rate for the quadratic cost by 6. This argument is far from rigorous, and shouldn't be taken too seriously. However, it can sometimes be a useful starting point.
+
+## Softmax
+
+Softmax activation function $a_j^L = \displaystyle \frac{e^{z_j^L}}{\sum_k e^{z_k^L}}$, with log-likelihood cost function $C = -\ln(y^Ta^L)$, give $\delta^L = a^L-y$.
+
+### Why $\delta^L = a^L-y$?
+
+Assume $y_s = 1$ and $y_t = 0$,  $t \neq s$:
+
+\begin{equation}
+\begin{array}{rcl}
+\delta_j^L 
+& = & \displaystyle \sum_k \frac{\partial C}{\partial a_k^L} \frac{\partial a_k^L}{\partial z_j^L}
+  =  \displaystyle \sum_k - \frac{1}{y^T a^L} y_k \frac{\partial a_k^L}{\partial z_j^L}
+  =  \displaystyle - \frac{1}{a_s^L} \frac{\partial a_s^L}{\partial z_j^L} \\
+& = & \displaystyle - \frac{1}{a_s^L} \frac{\displaystyle e^{z_s^L}\left(\sum_k e^{z_k^L}\right)\mathrm{I}\{j == s\} - e^{z_s^L}e^{z_j^L}}{\displaystyle \left(\sum_k e^{z_k^L}\right)^2} \\
+& = & a_j^L - \mathrm{I}\{j == s\} \\
+& = & a_j^L - y_j
+\end{array}(\#eq:vvsn-softmax-delta)
+\end{equation}
+
+An alternate view:
+
+\begin{equation}
+\begin{array}{rcl}
+\delta_j^L 
+& = & \displaystyle \sum_k \frac{\partial C}{\partial a_k^L} \frac{\partial a_k^L}{\partial z_j^L} \\
+& = & \displaystyle \sum_k - \frac{1}{y^T a^L} y_k - \frac{\displaystyle e^{z_k^L}\left(\sum_t e^{z_t^L}\right)\mathrm{I}\{k == j\} - e^{z_k^L}e^{z_j^L}}{\displaystyle \left(\sum_k e^{z_t^L}\right)^2} \\
+& = & \displaystyle - \frac{1}{y^T a^L} \sum_k y_k \left( a_k^L \mathrm{I}\{k == j\} - a_k^L a_j^L\right) \\
+& = & \displaystyle - \frac{1}{y^T a^L} \left( y_j a_j^L - \left(y^Ta^L\right) a_j^L \right)\\
+& = & \displaystyle - \frac{1}{y^T a^L} \left( \left(y^Ta^L\right) y_j - \left(y^Ta^L\right) a_j^L \right) \\
+& = & a_j^L - y_j
+\end{array}(\#eq:vvsn-softmax-delta-alt)
+\end{equation}
+
+Thus,
+
+\begin{equation}
+\begin{array}{rcl}
+\displaystyle \frac{\partial C}{\partial w_{jk}^L} & = & a_k^{L-1} (a_j^L - y_j) \\
+\displaystyle \frac{\partial C}{\partial b_j^L}    & = & a_j^L - y_j
+\end{array}(\#eq:vvsn-softmax-wb)
+\end{equation}
+
+### When use a sigmoid output layer and cross-entropy, or a softmax output layer and log-likelihood? 
+
+A general principle, softmax plus log-likelihood is worth using whenever one want to interpret the output activations as probabilities. That's not always a concern, but can be useful with classification problems (like MNIST) involving disjoint classes.
+
+### Where does the "softmax" name come from?
+
+\begin{equation}
+a^L_j = \frac{e^{c z^L_j}}{\sum_k e^{c z^L_k}},
+\end{equation}
+
+If $c \rightarrow \infty$ then $a^L_j = 1$ if $z^L_j = \max\{z^L_k, k = 1, \ldots, m\}$, and otherwise $0$, so when $c = 1$ the function can be viewed as a "softened" version of the maximum function. This is the origin of the term "softmax".
+
+## Overfitting and regularization
+
+John von Neumann famously said: [With four parameters I can fit an elephant, and with five I can make him wiggle his trunk.](http://www.johndcook.com/blog/2011/06/21/how-to-fit-an-elephant/)
+
+```{python ipln-elephant, eval=FALSE}
+"""
+Author: Piotr A. Zolnierczuk (zolnierczukp at ornl dot gov)
+ 
+Based on a paper by:
+Drawing an elephant with four complex parameters
+Jurgen Mayer, Khaled Khairy, and Jonathon Howard,
+Am. J. Phys. 78, 648 (2010), DOI:10.1119/1.3254017
+"""
+import numpy as np
+import pylab
+ 
+# elephant parameters
+p1, p2, p3, p4 = (50 - 30j, 18 +  8j, 12 - 10j, -14 - 60j )
+p5 = 40 + 20j # eyepiece
+ 
+def fourier(t, C):
+    f = np.zeros(t.shape)
+    A, B = C.real, C.imag
+    for k in range(len(C)):
+        f = f + A[k]*np.cos(k*t) + B[k]*np.sin(k*t)
+    return f
+ 
+def elephant(t, p1, p2, p3, p4, p5):
+    npar = 6
+    Cx = np.zeros((npar,), dtype='complex')
+    Cy = np.zeros((npar,), dtype='complex')
+ 
+    Cx[1] = p1.real*1j
+    Cx[2] = p2.real*1j
+    Cx[3] = p3.real
+    Cx[5] = p4.real
+ 
+    Cy[1] = p4.imag + p1.imag*1j
+    Cy[2] = p2.imag*1j
+    Cy[3] = p3.imag*1j
+ 
+    x = np.append(fourier(t,Cx), [-p5.imag])
+    y = np.append(fourier(t,Cy), [p5.imag])
+ 
+    return x,y
+ 
+x, y = elephant(np.linspace(0,2*np.pi,1000), p1, p2, p3, p4, p5)
+pylab.plot(y,-x,'.')
+pylab.show()
+```
+
+### L2 Regularization
+
+The __L2 regularization__ a.k.a weight decay is adding an extra regularization term which is sum of squares of all the weights in the network to the cost function:
+
+\begin{equation}
+C = C_0 + \frac{\lambda}{2n}\sum_w w^2
+\end{equation}
+
+where $C_0$ is the original unregularized cost function. The regularization term is scaled by a factor $\lambda/2n$, where $\lambda>0$ is known as the regularization parameter, and $n$ is the size of our training set.
+
+Here's the regularized cross-entropy cost function:
+
+\begin{equation}
+C = -\frac{1}{n} \sum_{x}\sum_{j} \left[ y_j \ln a_j^L + (1-y_j) \ln \left(1-a_j^L\right) \right] + \frac{\lambda}{2n} \sum_w w^2.
+\end{equation}
+
+And the regularized quadratic cost function:
+
+\begin{equation} 
+C = \frac{1}{2n} \sum_x \|y-a^L\|^2 + \frac{\lambda}{2n} \sum_w w^2.
+\end{equation}
+
+Intuitively, the effect of regularization is to make it so the network prefers to learn small weights, all other things being equal. Large weights will only be allowed if they considerably improve the first part of the cost function. Put another way, regularization can be viewed as a way of compromising between finding small weights and minimizing the original cost function. The relative importance of the two elements of the compromise depends on the value of $\lambda$: when $\lambda$ is small we prefer to minimize the original cost function, but when $\lambda$ is large we prefer small weights.
+
+#### Backpropgation with L2 regularization:
+
+Becuase
+
+\begin{equation}
+\begin{array}{rcl}
+\displaystyle \frac{\partial C}{\partial w} & = & \displaystyle \frac{\partial C_0}{\partial w} + \frac{\lambda}{n} w \\ 
+\displaystyle \frac{\partial C}{\partial b} & = & \displaystyle \frac{\partial C_0}{\partial b}.
+\end{array}
+\end{equation}
+
+The learning rule for the weight and bias becomes
+
+\begin{equation}
+\begin{array}{rcl}
+w & \rightarrow & \displaystyle w - \eta \frac{\partial C_0}{\partial w} - \frac{\eta \lambda}{n} w  
+  = \displaystyle \left(1-\frac{\eta \lambda}{n}\right) w -\eta \frac{\partial C_0}{\partial w}, \\
+b & \rightarrow & \displaystyle b -\eta \frac{\partial C_0}{\partial b}.
+\end{array}
+\end{equation}
+
+This is exactly the same as the usual gradient descent learning rule, except it first rescale the weight $w$ by a factor $1−\eta\lambda/n$. This rescaling is sometimes referred to as __weight decay__, since it makes the weights smaller.
+
+#### What is the impact of regularization in neural network learning?
+
+Often, 1) classification accuracy on the test data is improved, 2) the gap between results on the training data and test data is much narrower than unregularized version, and 3) the regularized version often provided much more easily replicable results across multiple runs with random starting points whereas the unregularized version occasionally get trapped in local minimal.
+
+#### Why regularization works?
+
+Suppose our network mostly has small weights, as will tend to happen in a regularized network. The smallness of the weights means that the behaviour of the network won't change too much if we change a few random inputs here and there. That makes it difficult for a regularized network to learn the effects of local noise in the data. Think of it as a way of making it so single pieces of evidence don't matter too much to the output of the network. Instead, a regularized network learns to respond to types of evidence which are seen often across the training set. By contrast, a network with large weights may change its behaviour quite a bit in response to small changes in the input. In a nutshell, regularized networks are constrained to build relatively simple models based on patterns seen often in the training data, and are resistant to learning peculiarities of the noise in the training data. The hope is that this will force our networks to do real learning about the phenomenon at hand, and to generalize better from what they learn.
+
+It has been conjectured that "the dynamics of gradient descent learning in multilayer nets has a 'self-regularization' effect" - In Gradient-Based Learning Applied to Document Recognition, by Yann LeCun, Léon Bottou, Yoshua Bengio, and Patrick Haffner (1998). 
+
+It's worth noting that having a large bias doesn't make a neuron sensitive to its inputs in the same way as having large weights. At the same time, allowing large biases gives our networks more flexibility in behaviour - in particular, large biases make it easier for neurons to saturate, which is sometimes desirable. As a result, usually the bias terms are not included in regularization.
+
+### L1 Regularization
+
+The __L1 regularization__ is adding the sum of the absolute values of the weights to the cost function:
+
+\begin{equation}
+C = C_0 + \frac{\lambda}{n} \sum_w |w|.
+\end{equation}
+
+The partial derivatives of the cost function
+
+\begin{equation}  
+\frac{\partial C}{\partial w} = \frac{\partial C_0}{\partial w} + \frac{\lambda}{n}{\rm sgn}(w),
+\end{equation}
+
+where $sgn(w)$ is the sign of $w$, that is, $+1$ if $w$ is positive, and $-1$ if $w$ is negative.
+
+The resulting update rule for an L1 regularized network is:
+
+\begin{equation}  
+w \rightarrow w' = w - \frac{\eta \lambda}{n} \mbox{sgn}(w) - \eta \frac{\partial C_0}{\partial w},
+\end{equation}
+
+where, as per usual, we can estimate $\displaystyle \frac{\partial C_0}{\partial w}$ using a mini-batch average $\displaystyle \frac{1}{m} \sum_x \frac{\partial {C_0}_{x}}{\partial w}$, if we wish.
+
+NB: $\partial C_0/\partial w$ isn't defined when $w = 0$, use with the convention that ${\rm sgn}(0) = 0$.
+
+#### What is the difference between L1 regularization and L2 regularization?
+
+In L1 regularization, the weights __shrink by a constant amount__ toward $0$. In L2 regularization, the weights __shrink by an amount which is proportional to $w$__ toward $0$. And so when a particular weight has a large magnitude, $|w|$, L1 regularization shrinks the weight much less than L2 regularization does. By contrast, when $|w|$ is small, L1 regularization shrinks the weight much more than L2 regularization. The net result is that __L1 regularization tends to concentrate the weight of the network in a relatively small number of high-importance connections, while the other weights are driven toward zero__.
+
+### Dropout
+
+A neural network is trained ordinarily by forward-propagating $x$ through the network, and then backpropagating to determine the contribution to the gradient. With dropout, this process is modified as starting by __randomly and temporarily__ deleting __half the hidden neurons__ (why half of the neuron? why not $\sqrt{n}$ of the neuron?) in the network, while leaving the input and output neurons untouched. 
+
+```{r ipln-dropout, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Dropout.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/03_tikz31.png"))
+```
+
+The training is completed by forward-propagate the input $x$ through the modified network, and then backpropagate the result, also through the modified network. After doing this over a mini-batch of examples, and updating the appropriate weights and biases, repeat the process by first restoring the dropout neurons, then choosing a new random subset of hidden neurons to delete, estimating the gradient for a different mini-batch, and updating the weights and biases in the network.
+
+By repeating this process over and over, the network will learn a set of weights and biases. Of course, those weights and biases will have been learnt under conditions in which half the hidden neurons were dropped out. When running the full network that means that twice as many hidden neurons will be active. To compensate for that, halve the weights outgoing from the hidden neurons.
+
+#### Why dropout can help with regularization to reduce overfitting?
+
+Think dropout as a less cost version of model averaging a.k.a voting. This kind of averaging scheme is often found to be a powerful (though expensive) way of reducing overfitting. The reason is that the different networks may overfit in different ways, and averaging may help eliminate that kind of overfitting. Heuristically, when we dropout different sets of neurons, it's rather like we're training different neural networks. And so the dropout procedure is like averaging the effects of a very large number of different networks. The different networks will overfit in different ways, and so, hopefully, the net effect of dropout will be to reduce overfitting.
+
+The original paper introducing the dropout technique: Improving neural networks by preventing co-adaptation of feature detectors by Geoffrey Hinton, Nitish Srivastava, Alex Krizhevsky, Ilya Sutskever, and Ruslan Salakhutdinov (2012). Dropout has been especially useful in training large, deep networks, where the problem of overfitting is often acute.
+
+"This technique reduces complex co-adaptations of neurons, since a neuron cannot rely on the presence of particular other neurons. It is, therefore, forced to learn more robust features that are useful in conjunction with many different random subsets of the other neurons." - ImageNet Classification with Deep Convolutional Neural Networks, by Alex Krizhevsky, Ilya Sutskever, and Geoffrey Hinton (2012).
+
+In other words, if we think of our network as a model which is making predictions, then we can think of dropout as a way of making sure that the model is robust to the loss of any individual piece of evidence. In this, it's somewhat similar to L1 and L2 regularization, which tend to reduce weights, and thus make the network more robust to losing any individual connection in the network.
+
+### Artificially expanding the training data
+
+Best Practices for Convolutional Neural Networks Applied to Visual Document Analysis, by Patrice Simard, Dave Steinkraus, and John Platt (2003): Expand the training data, using not just rotations but also translating and skewing the images. By training on the expanded data set, increase the network's accuracy to 98.9 percent. Also, experiment with what so called "elastic distortions", a special type of image distortion intended to emulate the random oscillations found in hand muscles. By using the elastic distortions to expand the data, the network achieved an even higher accuracy, 99.3 percent. Effectively, they were broadening the experience of their network by exposing it to the sort of variations that are found in real handwriting.
+
+The message to take away, especially in practical applications, is that what we want is __both__ __better algorithms__ and __better training data__.
+
+## Weight initialization
+
+Initialize weight with samples from $\mathcal{N}(0, 1/\sqrt{n_{\mathrm in}})$, rather than $\mathcal{N}(0, 1)$, can often improve the speed of learning, and sometime improve the long-run learning behaviour a.k.a the final performance significantly. - Practical Recommendations for Gradient-Based Training of Deep Architectures, by Yoshua Bengio (2012).
+
+### Connecting regularization and the improved method of weight initialization 
+
+L2 regularization sometimes automatically gives us something similar to the new approach to weight initialization. Suppose we are using the $\mathcal{N}(0, 1)$ approach to weight initialization. A heuristic argument can be sketched via: (1) supposing $\lambda$ is not too small, the first epochs of training will be dominated almost entirely by weight decay; (2) provided $\eta \lambda \ll n$ the weights will decay by a factor of ${\rm exp}(−\eta\lambda/m)$ per epoch: decay $(1 - \eta\lambda / n)^{n / m}$ per epoch, as $n \rightarrow \infty$, it goes to ${\rm exp}(-\eta\lambda/n \times n /m) = {\rm exp}(−\eta\lambda/m)$, and (3) supposing $\lambda$ is not too large, the weight decay will tail off when the weights are down to a size around $1/\sqrt{n}$, where $n$ is the total number of weights in the network.
+
+## The code
+
+```{python ipln-ntwk, eval=FALSE}
+"""network2.py
+~~~~~~~~~~~~~~
+
+An improved version of network.py, implementing the stochastic
+gradient descent learning algorithm for a feedforward neural network.
+Improvements include the addition of the cross-entropy cost function,
+regularization, and better initialization of network weights.  Note
+that I have focused on making the code simple, easily readable, and
+easily modifiable.  It is not optimized, and omits many desirable
+features.
+
+"""
+
+#### Libraries
+# Standard library
+import json
+import random
+import sys
+
+# Third-party libraries
+import numpy as np
+
+
+#### Define the quadratic and cross-entropy cost functions
+
+class QuadraticCost(object):
+
+    @staticmethod
+    def fn(a, y):
+        """Return the cost associated with an output ``a`` and desired output
+        ``y``.
+
+        """
+        return 0.5*np.linalg.norm(a-y)**2
+
+    @staticmethod
+    def delta(z, a, y):
+        """Return the error delta from the output layer."""
+        return (a-y) * sigmoid_prime(z)
+
+
+class CrossEntropyCost(object):
+
+    @staticmethod
+    def fn(a, y):
+        """Return the cost associated with an output ``a`` and desired output
+        ``y``.  Note that np.nan_to_num is used to ensure numerical
+        stability.  In particular, if both ``a`` and ``y`` have a 1.0
+        in the same slot, then the expression (1-y)*np.log(1-a)
+        returns nan.  The np.nan_to_num ensures that that is converted
+        to the correct value (0.0).
+
+        """
+        return np.sum(np.nan_to_num(-y*np.log(a)-(1-y)*np.log(1-a)))
+
+    @staticmethod
+    def delta(z, a, y):
+        """Return the error delta from the output layer.  Note that the
+        parameter ``z`` is not used by the method.  It is included in
+        the method's parameters in order to make the interface
+        consistent with the delta method for other cost classes.
+
+        """
+        return (a-y)
+
+
+#### Main Network class
+class Network(object):
+
+    def __init__(self, sizes, cost=CrossEntropyCost):
+        """The list ``sizes`` contains the number of neurons in the respective
+        layers of the network.  For example, if the list was [2, 3, 1]
+        then it would be a three-layer network, with the first layer
+        containing 2 neurons, the second layer 3 neurons, and the
+        third layer 1 neuron.  The biases and weights for the network
+        are initialized randomly, using
+        ``self.default_weight_initializer`` (see docstring for that
+        method).
+
+        """
+        self.num_layers = len(sizes)
+        self.sizes = sizes
+        self.default_weight_initializer()
+        self.cost=cost
+
+    def default_weight_initializer(self):
+        """Initialize each weight using a Gaussian distribution with mean 0
+        and standard deviation 1 over the square root of the number of
+        weights connecting to the same neuron.  Initialize the biases
+        using a Gaussian distribution with mean 0 and standard
+        deviation 1.
+
+        Note that the first layer is assumed to be an input layer, and
+        by convention we won't set any biases for those neurons, since
+        biases are only ever used in computing the outputs from later
+        layers.
+
+        """
+        self.biases = [np.random.randn(y, 1) for y in self.sizes[1:]]
+        self.weights = [np.random.randn(y, x)/np.sqrt(x)
+                        for x, y in zip(self.sizes[:-1], self.sizes[1:])]
+
+    def large_weight_initializer(self):
+        """Initialize the weights using a Gaussian distribution with mean 0
+        and standard deviation 1.  Initialize the biases using a
+        Gaussian distribution with mean 0 and standard deviation 1.
+
+        Note that the first layer is assumed to be an input layer, and
+        by convention we won't set any biases for those neurons, since
+        biases are only ever used in computing the outputs from later
+        layers.
+
+        This weight and bias initializer uses the same approach as in
+        Chapter 1, and is included for purposes of comparison.  It
+        will usually be better to use the default weight initializer
+        instead.
+
+        """
+        self.biases = [np.random.randn(y, 1) for y in self.sizes[1:]]
+        self.weights = [np.random.randn(y, x)
+                        for x, y in zip(self.sizes[:-1], self.sizes[1:])]
+
+    def feedforward(self, a):
+        """Return the output of the network if ``a`` is input."""
+        for b, w in zip(self.biases, self.weights):
+            a = sigmoid(np.dot(w, a)+b)
+        return a
+
+    def SGD(self, training_data, epochs, mini_batch_size, eta,
+            lmbda = 0.0,
+            evaluation_data=None,
+            monitor_evaluation_cost=False,
+            monitor_evaluation_accuracy=False,
+            monitor_training_cost=False,
+            monitor_training_accuracy=False):
+        """Train the neural network using mini-batch stochastic gradient
+        descent.  The ``training_data`` is a list of tuples ``(x, y)``
+        representing the training inputs and the desired outputs.  The
+        other non-optional parameters are self-explanatory, as is the
+        regularization parameter ``lmbda``.  The method also accepts
+        ``evaluation_data``, usually either the validation or test
+        data.  We can monitor the cost and accuracy on either the
+        evaluation data or the training data, by setting the
+        appropriate flags.  The method returns a tuple containing four
+        lists: the (per-epoch) costs on the evaluation data, the
+        accuracies on the evaluation data, the costs on the training
+        data, and the accuracies on the training data.  All values are
+        evaluated at the end of each training epoch.  So, for example,
+        if we train for 30 epochs, then the first element of the tuple
+        will be a 30-element list containing the cost on the
+        evaluation data at the end of each epoch. Note that the lists
+        are empty if the corresponding flag is not set.
+
+        """
+        if evaluation_data: n_data = len(evaluation_data)
+        n = len(training_data)
+        evaluation_cost, evaluation_accuracy = [], []
+        training_cost, training_accuracy = [], []
+        for j in xrange(epochs):
+            random.shuffle(training_data)
+            mini_batches = [
+                training_data[k:k+mini_batch_size]
+                for k in xrange(0, n, mini_batch_size)]
+            for mini_batch in mini_batches:
+                self.update_mini_batch(
+                    mini_batch, eta, lmbda, len(training_data))
+            print "Epoch %s training complete" % j
+            if monitor_training_cost:
+                cost = self.total_cost(training_data, lmbda)
+                training_cost.append(cost)
+                print "Cost on training data: {}".format(cost)
+            if monitor_training_accuracy:
+                accuracy = self.accuracy(training_data, convert=True)
+                training_accuracy.append(accuracy)
+                print "Accuracy on training data: {} / {}".format(
+                    accuracy, n)
+            if monitor_evaluation_cost:
+                cost = self.total_cost(evaluation_data, lmbda, convert=True)
+                evaluation_cost.append(cost)
+                print "Cost on evaluation data: {}".format(cost)
+            if monitor_evaluation_accuracy:
+                accuracy = self.accuracy(evaluation_data)
+                evaluation_accuracy.append(accuracy)
+                print "Accuracy on evaluation data: {} / {}".format(
+                    self.accuracy(evaluation_data), n_data)
+            print
+        return evaluation_cost, evaluation_accuracy, \
+            training_cost, training_accuracy
+
+    def update_mini_batch(self, mini_batch, eta, lmbda, n):
+        """Update the network's weights and biases by applying gradient
+        descent using backpropagation to a single mini batch.  The
+        ``mini_batch`` is a list of tuples ``(x, y)``, ``eta`` is the
+        learning rate, ``lmbda`` is the regularization parameter, and
+        ``n`` is the total size of the training data set.
+
+        """
+        nabla_b = [np.zeros(b.shape) for b in self.biases]
+        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        for x, y in mini_batch:
+            delta_nabla_b, delta_nabla_w = self.backprop(x, y)
+            nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+            nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+        self.weights = [(1-eta*(lmbda/n))*w-(eta/len(mini_batch))*nw
+                        for w, nw in zip(self.weights, nabla_w)]
+        self.biases = [b-(eta/len(mini_batch))*nb
+                       for b, nb in zip(self.biases, nabla_b)]
+
+    def backprop(self, x, y):
+        """Return a tuple ``(nabla_b, nabla_w)`` representing the
+        gradient for the cost function C_x.  ``nabla_b`` and
+        ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
+        to ``self.biases`` and ``self.weights``."""
+        nabla_b = [np.zeros(b.shape) for b in self.biases]
+        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        # feedforward
+        activation = x
+        activations = [x] # list to store all the activations, layer by layer
+        zs = [] # list to store all the z vectors, layer by layer
+        for b, w in zip(self.biases, self.weights):
+            z = np.dot(w, activation)+b
+            zs.append(z)
+            activation = sigmoid(z)
+            activations.append(activation)
+        # backward pass
+        delta = (self.cost).delta(zs[-1], activations[-1], y)
+        nabla_b[-1] = delta
+        nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+        # Note that the variable l in the loop below is used a little
+        # differently to the notation in Chapter 2 of the book.  Here,
+        # l = 1 means the last layer of neurons, l = 2 is the
+        # second-last layer, and so on.  It's a renumbering of the
+        # scheme in the book, used here to take advantage of the fact
+        # that Python can use negative indices in lists.
+        for l in xrange(2, self.num_layers):
+            z = zs[-l]
+            sp = sigmoid_prime(z)
+            delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+            nabla_b[-l] = delta
+            nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+        return (nabla_b, nabla_w)
+
+    def accuracy(self, data, convert=False):
+        """Return the number of inputs in ``data`` for which the neural
+        network outputs the correct result. The neural network's
+        output is assumed to be the index of whichever neuron in the
+        final layer has the highest activation.
+
+        The flag ``convert`` should be set to False if the data set is
+        validation or test data (the usual case), and to True if the
+        data set is the training data. The need for this flag arises
+        due to differences in the way the results ``y`` are
+        represented in the different data sets.  In particular, it
+        flags whether we need to convert between the different
+        representations.  It may seem strange to use different
+        representations for the different data sets.  Why not use the
+        same representation for all three data sets?  It's done for
+        efficiency reasons -- the program usually evaluates the cost
+        on the training data and the accuracy on other data sets.
+        These are different types of computations, and using different
+        representations speeds things up.  More details on the
+        representations can be found in
+        mnist_loader.load_data_wrapper.
+
+        """
+        if convert:
+            results = [(np.argmax(self.feedforward(x)), np.argmax(y))
+                       for (x, y) in data]
+        else:
+            results = [(np.argmax(self.feedforward(x)), y)
+                        for (x, y) in data]
+        return sum(int(x == y) for (x, y) in results)
+
+    def total_cost(self, data, lmbda, convert=False):
+        """Return the total cost for the data set ``data``.  The flag
+        ``convert`` should be set to False if the data set is the
+        training data (the usual case), and to True if the data set is
+        the validation or test data.  See comments on the similar (but
+        reversed) convention for the ``accuracy`` method, above.
+        """
+        cost = 0.0
+        for x, y in data:
+            a = self.feedforward(x)
+            if convert: y = vectorized_result(y)
+            cost += self.cost.fn(a, y)/len(data)
+        cost += 0.5*(lmbda/len(data))*sum(
+            np.linalg.norm(w)**2 for w in self.weights)
+        return cost
+
+    def save(self, filename):
+        """Save the neural network to the file ``filename``."""
+        data = {"sizes": self.sizes,
+                "weights": [w.tolist() for w in self.weights],
+                "biases": [b.tolist() for b in self.biases],
+                "cost": str(self.cost.__name__)}
+        f = open(filename, "w")
+        json.dump(data, f)
+        f.close()
+
+#### Loading a Network
+def load(filename):
+    """Load a neural network from the file ``filename``.  Returns an
+    instance of Network.
+
+    """
+    f = open(filename, "r")
+    data = json.load(f)
+    f.close()
+    cost = getattr(sys.modules[__name__], data["cost"])
+    net = Network(data["sizes"], cost=cost)
+    net.weights = [np.array(w) for w in data["weights"]]
+    net.biases = [np.array(b) for b in data["biases"]]
+    return net
+
+#### Miscellaneous functions
+def vectorized_result(j):
+    """Return a 10-dimensional unit vector with a 1.0 in the j'th position
+    and zeroes elsewhere.  This is used to convert a digit (0...9)
+    into a corresponding desired output from the neural network.
+
+    """
+    e = np.zeros((10, 1))
+    e[j] = 1.0
+    return e
+
+def sigmoid(z):
+    """The sigmoid function."""
+    return 1.0/(1.0+np.exp(-z))
+
+def sigmoid_prime(z):
+    """Derivative of the sigmoid function."""
+    return sigmoid(z)*(1-sigmoid(z))
+```
+
+Modify the code above to implement L1 regularization, and use L1 regularization to classify MNIST digits using a 30 hidden neuron network.
+
+## How to choose a neural network's hyper-parameters?
+
+__Broad strategy:__ __during the early stages, make sure to get quick feedback from experiments__: via smaller training sample via subset output class and subset of training data, smaller evaluation sample, and etc. 
+
+__Early stopping:__ determine the number of training epochs adaptively: rule of thrumb no-improvement-in-ten.
+
+__Learning rate and learning rate schedule, $\eta$:__ one natural approach is to use the same basic idea as early stopping. The idea is to hold the learning rate constant until the validation accuracy starts to get worse. Then decrease the learning rate by some amount, say a factor of two or ten. Repeat this many times, until, say, the learning rate is a factor of 1,024 (or 1,000) times lower than the initial value. Then terminate. 
+
+A recent paper which demonstrates the benefits of variable learning rates in attacking MNIST: Deep, Big, Simple Neural Nets Excel on Handwritten Digit Recognition, by Dan Claudiu Ciresan, Ueli Meier, Luca Maria Gambardella, and Jurgen Schmidhuber (2010).
+
+Often, we'll use validation accuracy to pick the regularization hyper-parameter, the mini-batch size, and network parameters such as the number of layers and hidden neurons, and so on, but simply use training accuracy to pick the learning rate, perhaps somewhat idiosyncratic. The reasoning is that the other hyper-parameters are intended to improve the final classification accuracy on the test set, and so it makes sense to select them on the basis of validation accuracy. However, the learning rate is only incidentally meant to impact the final classification accuracy. Its primary purpose is really to control the step size in gradient descent, and monitoring the training cost is the best way to detect if the step size is too big. With that said, this is a personal aesthetic preference.
+ 
+__The regularization parameter, $\lambda$:__ start initially with no regularization $\lambda = 0.0$, and determining a value for $\eta$, as above. Then use the validation data to select a good value for $\lambda$ based on choice of $\eta$. Start by trialling $\lambda = 1.0$ and then increase or decrease by factors of 10, as needed to improve performance on the validation data. Once a good order of magnitude is found, fine tune the value of $\lambda$. That done, should return and re-optimize $\eta$ again.
+
+__Mini-batch size, $m$:__ The choice of mini-batch size at which the speed is maximized is relatively independent of the other hyper-parameters, apart from the overall architecture, so no need to have optimized those hyper-parameters in order to find a good mini-batch size.
+
+The way to go is therefore to use some acceptable (but not necessarily optimal) values for the other hyper-parameters, and then trial a number of different mini-batch sizes, scaling $\eta$ as above. Plot the validation accuracy versus time (as in, real elapsed time, not epoch!), and choose whichever mini-batch size gives you the most rapid improvement in performance. With the mini-batch size chosen, proceed to optimize the other hyper-parameters.
+
+__Automated grid search techniques:__ Random search for hyper-parameter optimization, by James Bergstra and Yoshua Bengio (2012). And, a particularly promising 2012 paper which used a Bayesian approach to automatically optimize hyper-parameters - [Practical Bayesian optimization of machine learning algorithms, by Jasper Snoek, Hugo Larochelle, and Ryan Adams.](https://github.com/jaberg/hyperopt).
+
+## Optimization method: variations on stochastic gradient descent (SGD)
+
+### Hessian
+
+From Taylor's theorem:
+
+\begin{equation}
+C(w + \Delta w) \approx C(w) + \nabla C \cdot \Delta w + \frac{1}{2} \Delta w^T H \Delta w
+\end{equation}
+
+Thus, minimize $C$ via choosing
+
+\begin{equation}
+\Delta w = - H^{-1} \nabla C
+\end{equation}
+
+### Momentum-based gradient descent
+
+Intuitively, the advantage Hessian optimization has is that it incorporates not just information about the gradient, but also information about how the gradient is changing. The momentum-based gradient descent introduce velocity variables $v = v_1, v_2, \ldots$, one for each corresponding weight $w_j$ (and bias) variable, and replace the gradient descent update rule $w \rightarrow w'= w-\eta \nabla C$ by 
+
+\begin{equation}
+\begin{array}
+v & \rightarrow & v' = \mu v - \eta \nabla C
+w & \rightarrow & w' = w + v'.
+\end{array}
+\end{equation}
+
+Here, $\mu$ is a hyper-parameter which controls the amount of damping or friction in the system. To be a little more precise, think $1 − \mu$ as the amount of friction in the system. When $\mu = 0$ there's a lot of friction, the velocity can't build up, and momentum-based gradient descent updating equation reduce to the usual gradient descent equation where $w \rightarrow w'= w-\eta \nabla C$. By contrast, when $\mu = 1$, there is no friction, and the velocity is completely driven by the gradient $\nabla C$. In practice, using a value of $\mu$ intermediate between $0$ and $1$ can give us much of the benefit of being able to build up speed, but without causing overshooting. We can choose such a value for $\mu$ using the held-out validation data, in much the same way as we select $\eta$ and $\lambda$.
+
+What would go wrong if we used $\mu > 1$ in the momentum technique?
+
+What would go wrong if we used $\mu < 0$ in the momentum technique?
+
+Add momentum-based stochastic gradient descent to network2.py.
+
+## Variations on approaches to minimizing the cost function:
+
+On the importance of initialization and momentum in deep learning, by Ilya Sutskever, James Martens, George Dahl, and Geoffrey Hinton (2012).
+
+## Variations on artificial neuron models
+
+### Tanh
+
+\begin{equation}
+{\rm tanh}(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}} = 2\sigma(2z) - 1
+\end{equation}
+
+Tanh maps input to the range $-1$ to $1$, whereas sigmoid maps input to the range $0$ to $1$. Thus, ${\rm tanh}$ can help ensure there is no systematic bias for the weight updates to be one way or the other, which is often the case in sigmoid network as a consequence of backpropgation rule $w_{jk}^{l+1} = a_k^l\delta_j^{l+1}$ across all $k$ because the sigmoid activations are positive.
+
+### Rectified linear unit (ReLU)
+
+\begin{equation}
+\max(o, w \cdot x + b)
+\end{equation}
+
+Some recent work on image recognition has found considerable benefit in using rectified linear units through much of the network. For example, What is the Best Multi-Stage Architecture for Object Recognition?, by Kevin Jarrett, Koray Kavukcuoglu, Marc'Aurelio Ranzato and Yann LeCun (2009), Deep Sparse Rectiﬁer Neural Networks, by Xavier Glorot, Antoine Bordes, and Yoshua Bengio (2011), and ImageNet Classification with Deep Convolutional Neural Networks, by Alex Krizhevsky, Ilya Sutskever, and Geoffrey Hinton (2012). Note that these papers fill in important details about how to set up the output layer, cost function, and regularization in networks using rectified linear units. The papers also discuss in more detail the benefits and drawbacks of using rectified linear units. Another informative paper is Rectified Linear Units Improve Restricted Boltzmann Machines, by Vinod Nair and Geoffrey Hinton (2010), which demonstrates the benefits of using rectified linear units in a somewhat different approach to neural networks.
+
+## Reference
+
+Efficient BackProp, by Yann LeCun, Leon Bottou, Genevieve Orr and Klaus-Robert Muller (1998)
+
+Understanding the difficulty of training deep feedforward networks, by Xavier Glorot and Yoshua Bengio (2010).
+
+Practical recommendations for gradient-based training of deep architectures, by Yoshua Bengio (2012).
+
+Neural Networks: Tricks of the Trade, edited by Gregoire Montavon, Genevieve Orr, and Klaus-Robert Muller.

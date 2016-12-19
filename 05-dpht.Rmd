@@ -1,0 +1,113 @@
+# Why are deep neural networks hard to train? {#dpht}
+
+## Toward deep neural network
+
+```{r dpht-01, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Single Layer Neural Network.', fig.show = 'hold', out.width='40%'}
+knitr::include_graphics(c("fig/05_tikz51.png"))
+```
+
+```{r dpht-02, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Multiple Layer Neural Network.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/05_tikz52.png"))
+```
+
+### How to train such deep networks? 
+
+Training deep networks using __stochastic gradient descent__ by __backpropagation__ often runs into trouble, with the deep networks not performing much (if at all) better than shallow networks. There's an intrinsic instability associated to learning by gradient descent in deep many-layer neural networks that leads different layers in the deep network learning at vastly different speeds. This instability tends to result in either the early or the later layers getting stuck during training. In particular, when later layers in the network are learning well, early layers often get stuck during training, learning almost nothing at all. And, when early layers may be learning well, the later layers can become stuck. This stuckness is the fundamental reasons that the learning slowdown occurs, a consequence of using gradient-based learning techniques, rather than simply due to bad luck. Rather, we'll discover there are.
+
+## The vanishing gradient problem
+
+The initial gradient magnitude in a two hidden layer newtork, one observation is that the earlier layer has much smaller magnitude than the later layer:
+
+```{r dpht-vgdp01, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='The initial gradient w.r.t layer.', fig.show = 'hold', out.width='20%'}
+knitr::include_graphics(c("fig/05_tikz53.png"))
+```
+
+Let $||\delta^l||$ be the measure of learning speed of layer $l$, then:
+
+```{r dpht-vgdp-02, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='The speed of learning w.r.t layer.', fig.show = 'hold', out.width='33%'}
+knitr::include_graphics(c("fig/05_tikz54_training_speed_2_layers.png", "fig/05_tikz55_training_speed_3_layers.png", "fig/05_tikz56_training_speed_4_layers.png"))
+```
+
+The phenomenon is known as __the vanishing gradient problem__. See Gradient flow in recurrent nets: the difficulty of learning long-term dependencies, by Sepp Hochreiter, Yoshua Bengio, Paolo Frasconi, and Jurgen Schmidhuber (2001). This paper studied recurrent neural nets, but the essential phenomenon is the same as in the feedforward networks we are studying. See also Sepp Hochreiter's earlier Diploma Thesis, Untersuchungen zu dynamischen neuronalen Netzen (1991, in German). And, sometimes the gradient gets much larger in earlier layers. This is __the exploding gradient problem__. More generally, it turns out that __the gradient in deep neural networks is unstable, tending to either explode or vanish in earlier layers__.
+
+## What's causing the vanishing gradient problem?
+
+### An example of the vanishing gradient problem
+
+Let's consider a three layer nerual network with a single neuron in each layer:
+
+```{r dpht-vgdp03, echo=FALSE, cache=TRUE, fig.align='center', fig.show = 'hold', out.width='60%'}
+knitr::include_graphics(c("fig/05_tikz57.png"))
+``` 
+
+Then
+
+\begin{equation}
+\begin{array}{rcl}
+\displaystyle \frac{\partial C}{\partial b_1}
+& = & \displaystyle \frac{\partial C}{\partial a_4} \frac{\partial a_4}{\partial z_4}
+\frac{\partial z_4}{\partial a_3} \frac{\partial a_3}{\partial z_3}
+\frac{\partial z_3}{\partial a_2} \frac{\partial a_2}{\partial z_2}
+\frac{\partial z_2}{\partial a_1} \frac{\partial a_1}{\partial z_1}
+\frac{\partial z_1}{\partial b_1} \\
+& = & \displaystyle \frac{\partial C}{\partial a_4} 
+\sigma'(z_4) w_4 \sigma'(z_3) w_3 \sigma'(z_2) w_2 \sigma'(z_1)
+\end{array}
+\end{equation}
+
+Thus
+
+```{r dpht-vgdp04, echo=FALSE, cache=TRUE, fig.align='center', fig.show = 'hold', out.width='60%'}
+knitr::include_graphics(c("fig/05_tikz58.png"))
+``` 
+
+Since $\sigma'(z) = \sigma(z)(1 - \sigma(z))$ reaches maximum at $\sigma'(0) = 1/4$, with $w_i \sim \mathcal{N}(0, 1/\sqrt{n_{\rm in}})$, it is often that $|w_j| < 1$ and $|w_j \sigma'(z_j)| < 1/4$, and as a result:
+
+```{r dpht-vgdp05, echo=FALSE, cache=TRUE, fig.align='center', fig.show = 'hold', out.width='60%'}
+knitr::include_graphics(c("fig/05_tikz59.png"))
+``` 
+
+
+### An example of the exploding gradient problem
+
+Take $w_1 = w_2 = w_3 = w_4 = 100$ and $b_j$ such that $z_j = 0$ when initialize the above neural network.
+
+### The prevalence of the vanishing gradient problem
+
+Let's consider again the expression $|w\sigma'(z)|$, we need $|w\sigma'(z)| \geq 1$ to avoid the vanishing gradient problem. However, simply having $w$ large would often have $\sigma'(z) = \sigma'(wx+b)$ very small, so often gradients are vanishing. 
+
+To have $|w \sigma'(wa+b)| \geq 1$, the set of $a$ satisfying that constraints can range over an interval no greater in width than $\displaystyle \frac{2}{|w|} \ln \left( \frac{|w|(1+\sqrt{1-4/|w|})}{2} - 1 \right)$. This range reaches it's maximum at $|w|\approx6.9$, where it takes value $\approx0.45$. And so even given that everything lines up just perfectly, we still have a fairly narrow range of input activations which can avoid the vanishing gradient problem.
+
+## Why gradients in deep neural nets are unstable?
+
+The fundamental problem here isn't so much the vanishing gradient problem or the exploding gradient problem. It's that __the gradient in early layers is the product of terms from all the later layers__. When there are many layers, __that's an intrinsically unstable situation__. The only way all layers can learn at close to the same speed is if all those products of terms come close to balancing out. Without some mechanism or underlying reason for that balancing to occur, it's highly unlikely to happen simply by chance. In short, the real problem here is that neural networks suffer from an unstable gradient problem. As a result, if we use standard gradient-based learning techniques, different layers in the network will tend to learn at wildly different speeds.
+
+### The gradients are unstable even in more complex networks
+
+The gradient in the $l$th layer of an $L$ layer network:
+
+\begin{equation}
+\delta^l = \Sigma'(z^l) (w^{l+1})^T \Sigma'(z^{l+1}) (w^{l+2})^T \ldots \Sigma'(z^L) \nabla_a C
+\end{equation}
+
+Here, $\Sigma'(z^l)$ is a diagonal matrix whose entries are the $\sigma'(z)$ values for the weighted inputs to the $l$th layer. The $w^l$ are the weight matrices for the different layers. And $\nabla_a C$ is the vector of partial derivatives of $C$ with respect to the output activations $a$.
+
+The matrices $\Sigma'(z^j)$ have small entries on the diagonal, none larger than $1/4$, provided the weight matrices $w^j$ aren't too large, each additional term ${(w^j)}^T\Sigma'(z^j)$ tends to make the gradient vector smaller, leading to a vanishing gradient. More generally, the large number of terms in the product tends to lead to an unstable gradient. In practice, empirically it is typically found in sigmoid networks that gradients vanish exponentially quickly in earlier layers. As a result, learning slows down in those layers. This slowdown isn't merely an accident or an inconvenience: it's a fundamental consequence of the stochastic gradient descent learning approach.
+
+## List of obstacles to deep learning
+
+The performance of a deep network is a consequence of the choice of network architecture, the choice of activation function, the choice of cost function, the choice of hyper-parameters, the way weights are initialized, and even details of how learning by gradient descent is implemented.
+
+1. The use of stochastic gradient descent and backpropgation: vanishing gradients problem, or more generally, the unstable gradients problem.
+
+2. The use of sigmoid activation functions: can cause the activations in the final hidden layer to saturate near $0$ early in training, substantially slowing down learning. 
+
+3. The random weight initialization and the momentum schedule in momentum-based stochastic gradient descent: both can make a substantial impact on the ability to train deep networks.
+
+## Reference
+
+Efficient BackProp, by Yann LeCun, Leon Bottou, Genevieve Orr and Klaus-Robert Muller (1998)
+
+Understanding the difficulty of training deep feedforward neural networks, by Xavier Glorot and Yoshua Bengio (2010).
+
+On the importance of initialization and momentum in deep learning, by Ilya Sutskever, James Martens, George Dahl and Geoffrey Hinton (2013).

@@ -17,7 +17,7 @@ In math:
     1 & \mbox{if } w\cdot x + b > 0
   \end{array}
 \right.
-\label{eq:nnhd-pptn}
+(\#eq:nnhd-pptn)
 \end{equation}
 
 In equation \@ref(eq:nnhd-pptn), $b$ is called bias - a measure of how easy it is to get the perceptron to output a 1. Or to put it in more biological terms, the bias is a measure of how easy it is to get the perceptron to __fire__.
@@ -42,7 +42,7 @@ knitr::include_graphics(c("fig/01_tikz03.png", "fig/01_tikz04.png"))
 
 ## Sigmoid Neuron
 
-Motivation of `from Perceptrons to Sigmoid Neuron`: The desire of a small change in a weight (or bias) causes only a small change in output, so that gradually modify the weights and biases make the network getting closer to the desired behaviour.
+__Motivation from Perceptrons to Sigmoid Neuron__: The desire of a small change in a weight (or bias) causes only a small change in output, so that modify the weights and biases gradually can make the network getting closer and closer to the desired behaviour.
 
 ```{r nnhd-sn-motivation, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Motivation of using Sigmoid Neuron.', out.width='70%'}
 knitr::include_graphics("fig/01_tikz08.png")
@@ -52,7 +52,7 @@ Sigmoid neurons are similar to perceptrons, but modified so that small changes i
 
 \begin{equation} 
 \sigma(z) \equiv \frac{1}{1 + e^{-z}} = \frac{1}{1 + \exp(-\sum_j w_j x_j - b)}.
-\label{eq:nnhd-sn-sigmoid}
+(\#eq:nnhd-sn-sigmoid)
 \end{equation}
 
 <!-- fig. sigmoid function / step function -->
@@ -62,7 +62,7 @@ The smoothness of $\sigma$ means that small changes $\Delta w_j$ in the weights 
 \begin{equation} 
 \Delta \mbox{output} \approx \sum_j \frac{\partial \, \mbox{output}}{\partial w_j} \Delta w_j + 
                              \frac{\partial \, \mbox{output}}{\partial b} \Delta b,
-\label{eq:nnhd-sn-smoothness}
+(\#eq:nnhd-sn-smoothness)
 \end{equation}
 
 is the sum over all the changes in weights $w_j$ and bias $b$, weighted by the partial derivatives of the output to $w_j$ and $b$, respectively.
@@ -95,7 +95,7 @@ knitr::include_graphics("fig/01_tikz12.png")
 
 \begin{equation}  
 C(w,b) \equiv \frac{1}{2n} \sum_x \| y(x) - a\|^2.
-\label{eq:nnhd-gd-cf}
+(\#eq:nnhd-gd-cf)
 \end{equation}
 
 ### The gradient descent method as an optimization approach
@@ -110,14 +110,14 @@ Consider minimizing any function $C(v), v = v_1, v_2, \ldots, v_m$, known that
                  \cdots
                  \frac{\partial C}{\partial v_m} \Delta v_m +
          = \nabla C \cdot \Delta v.
-\label{eq:nnhd-gd-1d}
+(\#eq:nnhd-gd-1d)
 \end{equation}
 
 where $\displaystyle \nabla C \equiv \left(\frac{\partial C}{\partial v_1}, \ldots, \frac{\partial C}{\partial v_m}\right)^T$ is the __gradient__ of $C$, then choose 
 
 \begin{equation} 
 \Delta v = -\eta \nabla C,
-\label{eq:nnhd-gd-dc}
+(\#eq:nnhd-gd-dc)
 \end{equation}
 
 with a small positive __learning rate__ $\eta$ means $\displaystyle \Delta C \approx -\eta \nabla C \cdot \nabla C = -\eta \|\nabla C\|^2$  is negative guaranteed, e.g., makes $C$ montonically decreasing.
@@ -126,7 +126,7 @@ Thus, Equation \@ref(eq:nnhd-gd-dc) defines the __law of motion__, and suggests 
 
 \begin{equation}
 v \rightarrow v' = v -\eta \nabla C.
-\label{eq:nnhd-gd-mv}
+(\#eq:nnhd-gd-mv)
 \end{equation}
 
 repeatedly for minimizing $C$.
@@ -143,7 +143,7 @@ In general, instance $v$ with $w$ and $b$, such as updating
 \begin{array}{rcccl}
 w_k & \rightarrow & w_k' & = & w_k-\eta \frac{\partial C}{\partial w_k} \\
 b_l & \rightarrow & b_l' & = & b_l-\eta \frac{\partial C}{\partial b_l}.
-\end{array}\label{eq:nnhd-gd-mw}
+\end{array}(\#eq:nnhd-gd-mw)
 \end{equation}
 
 Take advantage that cost function has structure $\displaystyle C = \frac{1}{n} \sum_x C_x$ average over costs $\displaystyle C_x \equiv \frac{\|y(x)-a\|^2}{2}$, __stochastic gradient descent__ speeds up learning by estimating the gradient $\nabla C$ by computing $\nabla C_x$ for a small sample of randomly chosen training inputs called min-batch.
@@ -153,7 +153,7 @@ Speaking explicitly, suppose $w_k$ and $b_l$ denote the weights and biases in ou
 \begin{array}{rcccl}
 w_k & \rightarrow & w_k' & = & w_k-\frac{\eta}{m} \sum_j \frac{\partial C_{X_j}}{\partial w_k} \\
 b_l & \rightarrow & b_l' & = & b_l-\frac{\eta}{m} \sum_j \frac{\partial C_{X_j}}{\partial b_l}.
-\end{array}\label{nnhd-sgd-mw}
+\end{array}(\#eq:nnhd-sgd-mw)
 \end{equation}
 where the sums are over all the training examples $X_j$ in the current mini-batch. Then pick out another randomly chosen mini-batch and train with those. And so on, until exhaust the training inputs, which is said to complete an __epoch__ of training. At that point, start over with a new training epoch.
 
@@ -161,9 +161,9 @@ An extreme case is to use a size 1 mini-batch, a.k.a, __online__, __on-line__ or
 
 ### Solver
 
-See code and note at [source code folder](./src).
+See code and note on `network.py` and `network_note.py` in [source code folder](./src).
 
-```{python nnhd-ntwk}
+```{python nnhd-ntwk, eval=FALSE}
 """
 network.py
 ~~~~~~~~~~
@@ -300,6 +300,17 @@ def sigmoid(z):
 def sigmoid_prime(z):
     """Derivative of the sigmoid function."""
     return sigmoid(z)*(1-sigmoid(z))
+```
+
+Run the solver:
+
+```{python nnhd-ntwk-run, eval=FALSE}
+import mnist_loader
+training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
+
+import network
+net = network.Network([784, 30, 10])
+net.SGD(training_data, 30, 10, 3.0, test_data=test_data)
 ```
 
 ## Toward deep learning

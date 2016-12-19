@@ -1,0 +1,396 @@
+# Deep learning {#dplt}
+
+## Introducting convolutional networks
+
+A neural network with fully connected adjacent layers does not take into account the spatial structure of the images.
+
+```{r dplt-mls, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Multiple Layer Neural Network.', fig.show = 'hold', out.width='75%'}
+knitr::include_graphics(c("fig/06_tikz61.png"))
+```
+
+Convolutional neural networks use three basic ideas: __local receptive fields__, __shared weights__, and __pooling__.
+
+__Local receptive fields__: Each neuron in the first hidden layer will be connected to a small region of the input neurons, say, for example, a $5 \times 5$ region, corresponding to $25$ input pixels. The local receptive field being moved by one pixel at a time. In fact, sometimes a different __stride length__ is used. For instance, we might move the local receptive field $2$ pixels to the right (or down), in which case we'd say a stride length of $2$ is used. 
+
+```{r dplt-lrf, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Local Receptive Fields.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/06_tikz62.png", "fig/06_tikz63.png"))
+```
+
+__Shared weights and biases__: Each hidden neuron has a bias and $5 \times 5$ weights connected to its local receptive field, and even further, these field-neuron connections share the same weights and bias for each of the $24 \times 24$ hidden neurons. Thus, for the $j, k$th hidden neuron, the output is
+
+\begin{equation}
+\sigma \left( b + \sum_{l=0}^4 \sum_{m=0}^4  w_{l,m} a_{j+l, k+m} \right).
+\end{equation}
+
+Here, $\sigma$ is the neural activation function - perhaps the sigmoid function, tanh function, or recified linear unit. $b$ is the shared value for the bias. $w_{l,m}$ is a $5 \times 5$ array of shared weights. And, finally, $a_{x,y}$ denote the input activation at position $x,y$.
+
+This means that all the neurons in the first hidden layer detect exactly the same __feature__, just at different locations in the input image. Informally, think of the feature detected by a hidden neuron as the kind of input pattern that will cause the neuron to activate: it might be an edge in the image, for instance, or maybe some other type of shape. 
+
+For this reason, the map from the input layer to the hidden layer sometimes is called a __feature map__, the weights defining the feature map are called the __shared weights__, and the bias defining the feature map in this way is called the __shared bias__. __The shared weights and bias are often said to define a kernel or filter.__ One filter can detect just a single kind of localized feature. To do image recognition, we'll need more than one feature map. And so a complete convolutional layer consists of several different feature maps:
+
+```{r dplt-swb, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Feature Detection via Shared Weights and Bias.', fig.show = 'hold', out.width='60%'}
+knitr::include_graphics(c("fig/06_tikz64.png"))
+```
+
+The name __convolutional__ comes from the fact that the operation in above figure is sometimes known as a __convolution__: write equation as $a^1=\sigma(b + w \ast a^0)$, where $a^1$ denotes the set of output activations from one feature map, $a^0$ is the set of input activations, and $\ast$ is called a convolution operation.
+
+__Pooling layers__: often used immediately after convolutional layers for simplifying the information in the output from the convolutional layer.
+
+```{r dplt-mpl, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Pooling Features to a Condensed Feature Map.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/06_tikz65.png", "fig/06_tikz66.png"))
+```
+
+A pooling layer takes each feature map output from the convolutional layer and prepares a condensed feature map. For instance, each unit in the pooling layer may summarize a region of (say) $2 \times 2$ neurons in the previous layer. As a concrete example, one common procedure for pooling is known as __max-pooling__. In max-pooling, a pooling unit simply outputs the maximum activation in the $2 \times 2$ input region, and a $24 \times 24$ neurons output from the convolutional layer will becomes $12 \times 12$ neurons after pooling.
+
+Another common approach is known as __L2 pooling__, which instead of taking the maximum activation of a $2 \times 2$ region of neurons, it takes the square root of the sum of the squares of the activations in the $2 \times 2$ region.
+
+__A sketch of a complete convolutional neural network__: The network begins with $28 \times 28$ input neurons, which are used to encode the pixel intensities for the MNIST image. This is then followed by a convolutional layer using a $5 \times 5$ local receptive field and 33 feature maps. The result is a layer of $3 \times 24 \times 24$ hidden feature neurons. The next step is a max-pooling layer, applied to $2 \times 2$ regions, across each of the $3$ feature maps. The result is a layer of $3 \times 12 \times 12$ hidden feature neurons. The final layer of connections in the network is a fully-connected layer. That is, this layer connects every neuron from the max-pooled layer to every one of the $10$ output neurons.
+
+```{r dplt-cnn, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='A Sketch of Convolutional Networks.', fig.show = 'hold', out.width='70%'}
+knitr::include_graphics(c("fig/06_tikz67.png"))
+```
+
+## Apply convolutional networks to MNIST
+
+```{r dplt-cnn-mnist, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Apply Convolutional Networks to MNIST.', fig.show = 'hold', out.width='70%'}
+knitr::include_graphics(c("fig/06_tikz68_simple_conv.png"))
+```
+
+An ensemble version of above convolutional networks achieved a classification accuracy $99.67%$. In other words, the ensemble of networks classifies all but $33$ of the $10,000$ test images correctly. The remaining errors in the test set are shown below. The label in the top right is the correct classification, according to the MNIST data, while in the bottom right is the label output by our ensemble of nets:
+
+```{r dplt-cnn-mnist-error, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Apply Convolutional Networks to MNIST - Classification Error?.', fig.show = 'hold', out.width='70%'}
+knitr::include_graphics(c("fig/06_tikz69_ensemble_errors.png"))
+```
+
+The convolutional networks works much better than fully connected neural network. In particular: (1) Using convolutional layers greatly reduces the number of parameters in those layers, making the learning problem much easier; (2) Using more powerful regularization techniques (notably dropout and convolutional layers) to reduce overfitting, which is otherwise more of a problem in more complex networks; (3) Using rectified linear units instead of sigmoid neurons, to speed up training - empirically, often by a factor of $3-5$; (4) Using GPUs and being willing to train for a long period of time.
+
+
+## The code
+
+```{python dplt-ntwk, eval=FALSE}
+"""network3.py
+~~~~~~~~~~~~~~
+
+A Theano-based program for training and running simple neural
+networks.
+
+Supports several layer types (fully connected, convolutional, max
+pooling, softmax), and activation functions (sigmoid, tanh, and
+rectified linear units, with more easily added).
+
+When run on a CPU, this program is much faster than network.py and
+network2.py.  However, unlike network.py and network2.py it can also
+be run on a GPU, which makes it faster still.
+
+Because the code is based on Theano, the code is different in many
+ways from network.py and network2.py.  However, where possible I have
+tried to maintain consistency with the earlier programs.  In
+particular, the API is similar to network2.py.  Note that I have
+focused on making the code simple, easily readable, and easily
+modifiable.  It is not optimized, and omits many desirable features.
+
+This program incorporates ideas from the Theano documentation on
+convolutional neural nets (notably,
+http://deeplearning.net/tutorial/lenet.html ), from Misha Denil's
+implementation of dropout (https://github.com/mdenil/dropout ), and
+from Chris Olah (http://colah.github.io ).
+
+"""
+
+#### Libraries
+# Standard library
+import cPickle
+import gzip
+
+# Third-party libraries
+import numpy as np
+import theano
+import theano.tensor as T
+from theano.tensor.nnet import conv
+from theano.tensor.nnet import softmax
+from theano.tensor import shared_randomstreams
+from theano.tensor.signal import downsample
+
+# Activation functions for neurons
+def linear(z): return z
+def ReLU(z): return T.maximum(0.0, z)
+from theano.tensor.nnet import sigmoid
+from theano.tensor import tanh
+
+
+#### Constants
+GPU = True
+if GPU:
+    print "Trying to run under a GPU.  If this is not desired, then modify "+\
+        "network3.py\nto set the GPU flag to False."
+    try: theano.config.device = 'gpu'
+    except: pass # it's already set
+    theano.config.floatX = 'float32'
+else:
+    print "Running with a CPU.  If this is not desired, then the modify "+\
+        "network3.py to set\nthe GPU flag to True."
+
+#### Load the MNIST data
+def load_data_shared(filename="../data/mnist.pkl.gz"):
+    f = gzip.open(filename, 'rb')
+    training_data, validation_data, test_data = cPickle.load(f)
+    f.close()
+    def shared(data):
+        """Place the data into shared variables.  This allows Theano to copy
+        the data to the GPU, if one is available.
+
+        """
+        shared_x = theano.shared(
+            np.asarray(data[0], dtype=theano.config.floatX), borrow=True)
+        shared_y = theano.shared(
+            np.asarray(data[1], dtype=theano.config.floatX), borrow=True)
+        return shared_x, T.cast(shared_y, "int32")
+    return [shared(training_data), shared(validation_data), shared(test_data)]
+
+#### Main class used to construct and train networks
+class Network(object):
+
+    def __init__(self, layers, mini_batch_size):
+        """Takes a list of `layers`, describing the network architecture, and
+        a value for the `mini_batch_size` to be used during training
+        by stochastic gradient descent.
+
+        """
+        self.layers = layers
+        self.mini_batch_size = mini_batch_size
+        self.params = [param for layer in self.layers for param in layer.params]
+        self.x = T.matrix("x")
+        self.y = T.ivector("y")
+        init_layer = self.layers[0]
+        init_layer.set_inpt(self.x, self.x, self.mini_batch_size)
+        for j in xrange(1, len(self.layers)):
+            prev_layer, layer  = self.layers[j-1], self.layers[j]
+            layer.set_inpt(
+                prev_layer.output, prev_layer.output_dropout, self.mini_batch_size)
+        self.output = self.layers[-1].output
+        self.output_dropout = self.layers[-1].output_dropout
+
+    def SGD(self, training_data, epochs, mini_batch_size, eta,
+            validation_data, test_data, lmbda=0.0):
+        """Train the network using mini-batch stochastic gradient descent."""
+        training_x, training_y = training_data
+        validation_x, validation_y = validation_data
+        test_x, test_y = test_data
+
+        # compute number of minibatches for training, validation and testing
+        num_training_batches = size(training_data)/mini_batch_size
+        num_validation_batches = size(validation_data)/mini_batch_size
+        num_test_batches = size(test_data)/mini_batch_size
+
+        # define the (regularized) cost function, symbolic gradients, and updates
+        l2_norm_squared = sum([(layer.w**2).sum() for layer in self.layers])
+        cost = self.layers[-1].cost(self)+\
+               0.5*lmbda*l2_norm_squared/num_training_batches
+        grads = T.grad(cost, self.params)
+        updates = [(param, param-eta*grad)
+                   for param, grad in zip(self.params, grads)]
+
+        # define functions to train a mini-batch, and to compute the
+        # accuracy in validation and test mini-batches.
+        i = T.lscalar() # mini-batch index
+        train_mb = theano.function(
+            [i], cost, updates=updates,
+            givens={
+                self.x:
+                training_x[i*self.mini_batch_size: (i+1)*self.mini_batch_size],
+                self.y:
+                training_y[i*self.mini_batch_size: (i+1)*self.mini_batch_size]
+            })
+        validate_mb_accuracy = theano.function(
+            [i], self.layers[-1].accuracy(self.y),
+            givens={
+                self.x:
+                validation_x[i*self.mini_batch_size: (i+1)*self.mini_batch_size],
+                self.y:
+                validation_y[i*self.mini_batch_size: (i+1)*self.mini_batch_size]
+            })
+        test_mb_accuracy = theano.function(
+            [i], self.layers[-1].accuracy(self.y),
+            givens={
+                self.x:
+                test_x[i*self.mini_batch_size: (i+1)*self.mini_batch_size],
+                self.y:
+                test_y[i*self.mini_batch_size: (i+1)*self.mini_batch_size]
+            })
+        self.test_mb_predictions = theano.function(
+            [i], self.layers[-1].y_out,
+            givens={
+                self.x:
+                test_x[i*self.mini_batch_size: (i+1)*self.mini_batch_size]
+            })
+        # Do the actual training
+        best_validation_accuracy = 0.0
+        for epoch in xrange(epochs):
+            for minibatch_index in xrange(num_training_batches):
+                iteration = num_training_batches*epoch+minibatch_index
+                if iteration % 1000 == 0:
+                    print("Training mini-batch number {0}".format(iteration))
+                cost_ij = train_mb(minibatch_index)
+                if (iteration+1) % num_training_batches == 0:
+                    validation_accuracy = np.mean(
+                        [validate_mb_accuracy(j) for j in xrange(num_validation_batches)])
+                    print("Epoch {0}: validation accuracy {1:.2%}".format(
+                        epoch, validation_accuracy))
+                    if validation_accuracy >= best_validation_accuracy:
+                        print("This is the best validation accuracy to date.")
+                        best_validation_accuracy = validation_accuracy
+                        best_iteration = iteration
+                        if test_data:
+                            test_accuracy = np.mean(
+                                [test_mb_accuracy(j) for j in xrange(num_test_batches)])
+                            print('The corresponding test accuracy is {0:.2%}'.format(
+                                test_accuracy))
+        print("Finished training network.")
+        print("Best validation accuracy of {0:.2%} obtained at iteration {1}".format(
+            best_validation_accuracy, best_iteration))
+        print("Corresponding test accuracy of {0:.2%}".format(test_accuracy))
+
+#### Define layer types
+
+class ConvPoolLayer(object):
+    """Used to create a combination of a convolutional and a max-pooling
+    layer.  A more sophisticated implementation would separate the
+    two, but for our purposes we'll always use them together, and it
+    simplifies the code, so it makes sense to combine them.
+
+    """
+
+    def __init__(self, filter_shape, image_shape, poolsize=(2, 2),
+                 activation_fn=sigmoid):
+        """`filter_shape` is a tuple of length 4, whose entries are the number
+        of filters, the number of input feature maps, the filter height, and the
+        filter width.
+
+        `image_shape` is a tuple of length 4, whose entries are the
+        mini-batch size, the number of input feature maps, the image
+        height, and the image width.
+
+        `poolsize` is a tuple of length 2, whose entries are the y and
+        x pooling sizes.
+
+        """
+        self.filter_shape = filter_shape
+        self.image_shape = image_shape
+        self.poolsize = poolsize
+        self.activation_fn=activation_fn
+        # initialize weights and biases
+        n_out = (filter_shape[0]*np.prod(filter_shape[2:])/np.prod(poolsize))
+        self.w = theano.shared(
+            np.asarray(
+                np.random.normal(loc=0, scale=np.sqrt(1.0/n_out), size=filter_shape),
+                dtype=theano.config.floatX),
+            borrow=True)
+        self.b = theano.shared(
+            np.asarray(
+                np.random.normal(loc=0, scale=1.0, size=(filter_shape[0],)),
+                dtype=theano.config.floatX),
+            borrow=True)
+        self.params = [self.w, self.b]
+
+    def set_inpt(self, inpt, inpt_dropout, mini_batch_size):
+        self.inpt = inpt.reshape(self.image_shape)
+        conv_out = conv.conv2d(
+            input=self.inpt, filters=self.w, filter_shape=self.filter_shape,
+            image_shape=self.image_shape)
+        pooled_out = downsample.max_pool_2d(
+            input=conv_out, ds=self.poolsize, ignore_border=True)
+        self.output = self.activation_fn(
+            pooled_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+        self.output_dropout = self.output # no dropout in the convolutional layers
+
+class FullyConnectedLayer(object):
+
+    def __init__(self, n_in, n_out, activation_fn=sigmoid, p_dropout=0.0):
+        self.n_in = n_in
+        self.n_out = n_out
+        self.activation_fn = activation_fn
+        self.p_dropout = p_dropout
+        # Initialize weights and biases
+        self.w = theano.shared(
+            np.asarray(
+                np.random.normal(
+                    loc=0.0, scale=np.sqrt(1.0/n_out), size=(n_in, n_out)),
+                dtype=theano.config.floatX),
+            name='w', borrow=True)
+        self.b = theano.shared(
+            np.asarray(np.random.normal(loc=0.0, scale=1.0, size=(n_out,)),
+                       dtype=theano.config.floatX),
+            name='b', borrow=True)
+        self.params = [self.w, self.b]
+
+    def set_inpt(self, inpt, inpt_dropout, mini_batch_size):
+        self.inpt = inpt.reshape((mini_batch_size, self.n_in))
+        self.output = self.activation_fn(
+            (1-self.p_dropout)*T.dot(self.inpt, self.w) + self.b)
+        self.y_out = T.argmax(self.output, axis=1)
+        self.inpt_dropout = dropout_layer(
+            inpt_dropout.reshape((mini_batch_size, self.n_in)), self.p_dropout)
+        self.output_dropout = self.activation_fn(
+            T.dot(self.inpt_dropout, self.w) + self.b)
+
+    def accuracy(self, y):
+        "Return the accuracy for the mini-batch."
+        return T.mean(T.eq(y, self.y_out))
+
+class SoftmaxLayer(object):
+
+    def __init__(self, n_in, n_out, p_dropout=0.0):
+        self.n_in = n_in
+        self.n_out = n_out
+        self.p_dropout = p_dropout
+        # Initialize weights and biases
+        self.w = theano.shared(
+            np.zeros((n_in, n_out), dtype=theano.config.floatX),
+            name='w', borrow=True)
+        self.b = theano.shared(
+            np.zeros((n_out,), dtype=theano.config.floatX),
+            name='b', borrow=True)
+        self.params = [self.w, self.b]
+
+    def set_inpt(self, inpt, inpt_dropout, mini_batch_size):
+        self.inpt = inpt.reshape((mini_batch_size, self.n_in))
+        self.output = softmax((1-self.p_dropout)*T.dot(self.inpt, self.w) + self.b)
+        self.y_out = T.argmax(self.output, axis=1)
+        self.inpt_dropout = dropout_layer(
+            inpt_dropout.reshape((mini_batch_size, self.n_in)), self.p_dropout)
+        self.output_dropout = softmax(T.dot(self.inpt_dropout, self.w) + self.b)
+
+    def cost(self, net):
+        "Return the log-likelihood cost."
+        return -T.mean(T.log(self.output_dropout)[T.arange(net.y.shape[0]), net.y])
+
+    def accuracy(self, y):
+        "Return the accuracy for the mini-batch."
+        return T.mean(T.eq(y, self.y_out))
+
+
+#### Miscellanea
+def size(data):
+    "Return the size of the dataset `data`."
+    return data[0].get_value(borrow=True).shape[0]
+
+def dropout_layer(layer, p_dropout):
+    srng = shared_randomstreams.RandomStreams(
+        np.random.RandomState(0).randint(999999))
+    mask = srng.binomial(n=1, p=1-p_dropout, size=layer.shape)
+    return layer*T.cast(mask, theano.config.floatX)
+```
+
+## Further Reading
+
+__Recurrent neural networks (RNNs)__: neural networks with time-varying behaviour.
+
+__Long short-term memory units (LSTMs)__: alleviate unstable gradient issues especially in when training RNNs.
+
+__Deep belief nets, generative models, and Boltzmann machines__: In a feedforward network, we specify the input activations, and they determine the activations of the feature neurons later in the network. A generative model like a DBN can be used in a similar way, but it's also possible to specify the values of some of the feature neurons and then "run the network backward", generating values for the input activations. More concretely, a DBN trained on images of handwritten digits can (potentially, and with some care) also be used to generate images that look like handwritten digits. In other words, the DBN would in some sense be learning to write. In this, a generative model is much like the human brain: not only can it read digits, it can also write them. In Geoffrey Hinton's memorable phrase, to recognize shapes, first learn to generate images. DBNs are interesting also because they can do __unsupervised and semi-supervised learning__.
+
+__KSH model__
+
+```{r dplt-ksh, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='The 2012 KSH Paper.', fig.show = 'hold', out.width='70%'}
+knitr::include_graphics(c("fig/06_tikz6A_KSH.png"))
+```

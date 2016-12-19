@@ -1,0 +1,257 @@
+# How the backpropagation algorithm works {#bkpg}
+
+## Backpropagation
+
+A fast algorithm for computing gradient of cost function in neural network.
+
+## A fast matrix-based approach to computing the output from a neural network
+
+### Neuron view of activation cascading
+
+Let $w^{l}_{jk}$ denote the weight for the connection from the $k$th neuron in the $(l-1)$th layer to the $j$th neuron in the $l$th layer, $b^l_j$ denote the bias of the $j$th neuron in the $l$th layer, $a^l_j$ denote the activation of the $j$th neuron in the $l$th layer. 
+
+```{r bkpg-mv-notation-w, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Notation - w.', fig.show = 'hold', out.width='100%'}
+knitr::include_graphics(c("fig/02_tikz16.png"))
+```
+```{r bkpg-mv-notation-b, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Neural Network Notation - b.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/02_tikz17.png"))
+```
+
+Then, the activation $a^l_j$ of the $j$th neuron in the $l$th layer is related to the activations in the $(l-1)$th layer by the equation
+\begin{equation}
+a^{l}_j = \sigma\left( \sum_k w^{l}_{jk} a^{l-1}_k + b^l_j \right), (\#eq:bkpg-nvac)
+\end{equation}
+
+where the sum is over all neurons $k$ in the $(l-1)$th layer.
+
+### Matrix view of activation cascading
+
+To express Equation \@ref(eq:bkpg-nvac) in a matrix form, let $w^l$ denote a weight matrix for layer $l$, the entries of the weight matrix $w^l$ are just the weights connecting to the $l$th layer of neurons, that is, the entry in the $j$th row and $k$th column is $w^l_{jk}$. Similarly, let $b^l$ denote the bias vector for layer $l$, the components of the bias vector are just the values $b^l_j$, one component for each neuron in the $l$th layer. And finally, let $a^l$ denote the activation vector for layer $l$, whose components are the activations $a^l_j$. At last, let $\sigma(v)$ to denote an elementwise application of a function, such that $\sigma(v)_j = \sigma(v_j)$.
+
+Then Equation \@ref(eq:bkpg-nvac) can be rewritten in vectorized form:
+
+\begin{equation} 
+a^{l} = \sigma(w^l a^{l-1}+b^l). (\#eq:bkpg-mvac)
+\end{equation}
+
+Let us also denote __$z^l \equiv w^l a^{l-1}+b^l$__ as the __weighted input__ to the neurons in layer $l$ - $z^l$ has components $z^l_j= \sum_k w^l_{jk} a^{l-1}_k+b^l_j$ and $z^l_j$ in turns is just the weighted input to the activation function for neuron $j$ in layer $l$. And, it follows that Equation \@ref(eq:bkpg-mvac) can be rewritten as:
+
+\begin{equation} 
+a^{l} = \sigma(z^l), \quad\mbox{and}\quad z^l \equiv w^l a^{l-1}+b^l (\#eq:bkpg-mvaz)
+\end{equation}
+
+## Two assumptions on cost function for applying backpropagation
+
++ The cost can be written as an average over the cost of individual training sample.
+
++ The cost can be written as a function of outputs from the neuron network.
+
+Thus, 
+
+\begin{equation}
+C = \frac{1}{n}C_x = \frac{1}{n}\sum_x f_x(a^L, y)
+\end{equation}
+
+Why must overall cost as an average of individual training sample costs? The reason is that backpropagation actually compute the partial derivatives $\partial C_x
+/ \partial w$ and $\partial C_x / \partial b$ for a single training example, and then recover $\partial C / \partial w$ and $\partial C / \partial b$ by averaging over training examples.
+
+## The Hadamard product (The Schur product)
+
+Let $s \odot t$ denote the elementwise product of the two vectors:
+
+\begin{equation}
+(s \odot t)_j = s_j t_j
+\end{equation}
+
+## The four fundamental equations behind backpropagation
+
+### Motivation
+
+```{r bkpg-demon, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Backpropagation - Motivation.', fig.show = 'hold', out.width='100%'}
+knitr::include_graphics(c("fig/02_tikz19.png"))
+```
+
+Imagine a demon sits in neural network at the $j$th neuron in $l$th layer. The neuron can change the neuron's weighted input $z^l_j$ by a small amount $\Delta z^l_j$. This change propagates through later layers in the network, finally causing the overall cost to change by an amount $\frac{\partial C}{\partial z^l_j} \Delta z^l_j$. The demon can lower the overall cost by choosing $\Delta z^l_j$ to have opposite sign to $\frac{\partial C}{\partial z^l_j}$. However, since the demon is limited to choose a small amount $\Delta z^l_j$, the cost can be lower quite a lot when $\frac{\partial C}{\partial z^l_j}$ is larger, but not so much when $\frac{\partial C}{\partial z^l_j}$ is small. Thus, $\frac{\partial C}{\partial z^l_j}$ determines how optimal the neuron $z^l_j$. And a heuristic sense is that $\frac{\partial C}{\partial z^l_j}$ measures the error in the neuron $z^l_j$.
+
+Let $\delta^l_j$ denote the error of neuro $j$ in layer $l$:
+
+\begin{equation}
+\delta^l_j \equiv \frac{\partial C}{\partial z^l_j}
+\end{equation}
+
+### The equations of backpropagation
+
+The equations are:
+
+\begin{equation}
+\begin{array}{cccl}
+\mbox{BP1} \quad & \delta^L & = & \nabla_a C \odot \sigma'(z^L) \\
+\mbox{BP2} \quad & \delta^l & = & ((w^{l+1})^T \delta^{l+1}) \odot \sigma'(z^l) \\
+\mbox{BP3} \quad & \displaystyle \frac{\partial C}{\partial b^l_j} & = & \delta^l_j \\
+\mbox{BP4} \quad & \displaystyle \frac{\partial C}{\partial w^l_{jk}} & = & a^{l-1}_k \delta^l_j \\
+\end{array}
+\end{equation}
+
+The equations are:
+
+1. An equation for the error in the output layer $\delta^L$.
+
+2. An equation for the error $\delta^l$ in terms of the error in the next layer $\delta^{l+1}$
+
+3. An equation for the rate of change of the cost with respect to any bias in the network.
+
+4. An equation for the rate of change of the cost with respect to any weight in the network.
+
+The equations from a matrix view:
+
+\begin{equation}
+\begin{array}{cccl}
+\mbox{BP1M} \quad & \delta^L & = & \nabla_a C \odot \sigma'(z^L) \\
+                  &          & = & \Sigma'(z^L) \nabla_a C \\
+\mbox{BP2M} \quad & \delta^l & = & ((w^{l+1})^T \delta^{l+1}) \odot \sigma'(z^l) \\
+                  &          & = & \Sigma'(z^l) (w^{l+1})^T \delta^{l+1} \\
+                  &          & = & \Sigma'(z^l) (w^{l+1})^T \ldots \Sigma'(z^{L-1}) (w^L)^T \Sigma'(z^L) \nabla_a C \\
+\mbox{BP3M} \quad & \displaystyle \frac{\partial C}{\partial b^l} & = & \delta^l \\
+\mbox{BP4M} \quad & \displaystyle \frac{\partial C}{\partial w^l} & = & \delta^l \cdot {a^{l-1}}^T\\
+\end{array}
+\end{equation}
+
+where $\Sigma'(z^L)$ is a square matrix whose diagonal entries are the values $\sigma'(z^L)$ and whose off-diagonal entries are zero.
+
+A note on Equation BP4:
+
+\begin{equation}  
+\frac{\partial C}{\partial w} = a_{\rm in} \delta_{\rm out},
+\end{equation}
+
+where it's understood that $a_{\rm in}$ is the activation of the neuron input to the weight $w$, and $\delta_{\rm out}$ is the error of the neuron output from the weight $w$.
+
+```{r bkpg-eq4, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Backpropagation - BP4.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/02_tikz20.png"))
+```
+
+when the activation $a_{\rm in}$ is small, $a_{\rm in} \approx 0$, the gradient term $\partial C / \partial w$ will also tend to be small, and as a result, weight learns slowly, meaning that it's not changing much during gradient descent. __Thus, weights will learn slowly if input neuron is low-activation.__
+
+A note on Equation BP1:
+
+```{r bkpg-eq1, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Backpropagation - BP1.', fig.show = 'hold', out.width='50%'}
+knitr::include_graphics(c("fig/02_sigmoid.png"))
+```
+
+when $\sigma(z^L_j) \to 0 \mbox{or} 1$, $\sigma'(z^L_j) \approx 0$, the gradient $\partial C / \partial w \approx 0$, and the weight learns slowly. __Thus, weights will learn slowly if output neuron is either low-activation or high activation.__
+
+These insight provide a guidance on designing activation functions which have particular desired learning properties, e.g., a (non-sigmoid) activation function $\sigma(\cdot)$ that has $\sigma'(\cdot)$ stays positive and never gets close to zero could prevent the learning rate slow-down which occurs when ordinary sigmoid neurons saturate.
+
+## The proof of backpropagation equations:
+
++ BP1:
+
+\begin{equation}  
+\delta^L_j = \frac{\partial C}{\partial z^L_j} 
+           = \sum_k \frac{\partial C}{\partial a^L_k} \frac{\partial a^L_k}{\partial z^L_j}
+           = \frac{\partial C}{\partial a^L_j} \frac{\partial a^L_j}{\partial z^L_j} 
+           = \frac{\partial C}{\partial a^L_j} \sigma'(z^L_j).
+\end{equation}
+
++ BP2:
+
+\begin{equation}  
+\delta^l_j = \frac{\partial C}{\partial z^l_j}
+           = \sum_k \frac{\partial C}{\partial z^{l+1}_k} \frac{\partial z^{l+1}_k}{\partial z^l_j} 
+           = \sum_k \frac{\partial z^{l+1}_k}{\partial z^l_j} \delta^{l+1}_k
+\end{equation}
+
+plugin: 
+\begin{equation}
+z^{l+1}_k = \sum_j w^{l+1}_{kj} a^l_j +b^{l+1}_k = \sum_j w^{l+1}_{kj} \sigma(z^l_j) +b^{l+1}_k 
+\quad \implies \quad 
+\frac{\partial z^{l+1}_k}{\partial z^l_j} = w^{l+1}_{kj} \sigma'(z^l_j)
+\end{equation}
+
+give:
+
+\begin{equation}
+\delta^l_j = \sum_k w^{l+1}_{kj}  \delta^{l+1}_k \sigma'(z^l_j).
+\end{equation}
+
++ BP3:
+
+\begin{equation}
+\displaystyle \frac{\partial C}{\partial b^l_j} 
+  = \sum_k \frac{\partial C}{\partial z^l_k} \frac{\partial z^l_k}{\partial b^l_j}
+  = \frac{\partial C}{\partial z^l_j} \frac{\partial z^l_j}{\partial b^l_j}
+  = \delta^l_j.
+\end{equation}
+
++ BP4:
+
+\begin{equation}
+\displaystyle \frac{\partial C}{\partial w^l_{jk}} 
+  = \sum_i \frac{\partial C}{\partial z^l_i} \frac{\partial z^l_i}{\partial w^l_{jk}}
+  = \frac{\partial C}{\partial z^l_j} \frac{\partial z^l_j}{\partial w^l_{jk}}
+  = a^{l-1}_k \delta^l_j.
+\end{equation}
+
+## The backpropagation algorithm
+
+The backpropagation equations provide a way of computing the gradient of the cost function:
+
+1. Input $x$: Set the corresponding activation $a^1$ for the input layer.
+
+2. Feedforward: For each layer $l = 2, 3, \ldots, L$, compute $z^l = w^l a^{l-1} + b^l$ and $a^l = \sigma(z^l)$.
+
+3. Output error $\delta^L$: Compute the vector $\delta^L = \nabla_a C \odot \sigma'(z^L) = \Sigma'(z^L) \nabla_a C$.
+
+4. Backpropagate the error: For each $l = L -1, L - 2, \ldots, 2$, compute $\delta^l = ((w^{l+1})^T \delta^{l+1}) \odot \sigma'(z^l) = \Sigma'(z^l) (w^{l+1})^T \delta^{l+1}$.
+
+5. Output: The gradient of the cost function is given by $\displaystyle \frac{\partial C}{\partial w^l_{jk}} = a^{l-1}_k \delta^l_j$ and $\displaystyle \frac{\partial C}{\partial b^l_j} = \delta^l_j$.
+
+In context of a learning algorithm, such as stochastic gradient descent, often computes the gradient for many training examples, e.g., a mini-batch of $m$ training example and applies a gradient descent learning step based on that mini-batch:
+
+1. Input a set of $m$ training examples.
+
+2. For each training example $x$: Set the corresponding input activation $a^{x, 1}$ and perform the backpropagtion algorithm:
+
+    - Feedforward: For each layer $l = 2, 3, \ldots, L$, compute $z^{x, l} = w^l a^{x, l-1} + b^l$ and $a^{x, l} = \sigma(z^{x, l})$.
+
+    - Output error $\delta^{x, L}$: Compute the vector $\delta^{x, L} = \nabla_a C \odot \sigma'(z^{x, L}) = \Sigma'(z^{x, L}) \nabla_a C$.
+
+    - Backpropagate the error: For each $l = L -1, L - 2, \ldots, 2$, compute $\delta^{x, l} = ((w^{l+1})^T \delta^{x, l+1}) \odot \sigma'(z^{x, l}) = \Sigma'(z^{x, l}) (w^{l+1})^T \delta^{x, l+1}$.
+    
+3. Gradient descent: For each $l = L, L - 1, \ldots, 2$ update the weights and bias according the rule: $$w^l \rightarrow w^l-\frac{\eta}{m} \sum_x \delta^{x,l} (a^{x,l-1})^T  \quad\mbox{and}\quad b^l \rightarrow b^l-\frac{\eta}{m} \sum_x \delta^{x,l}$$.
+
+In practice, implement stochastic gradient descent would require an outer loop generating mini-batches of training examples, and an outer loop stepping through multiple epochs of training.
+
+## The code for backpropagation
+
+See code and note on `network.py` and `network_matrix.py` in [source code folder](./src).
+
+## The big picture
+
+```{r bkpg-init, echo=FALSE, cache=TRUE, fig.align='center', fig.cap='Backpropagation - Intuition', fig.show = 'hold', out.width='100%'}
+knitr::include_graphics(c("fig/02_tikz27.png"))
+```
+
+\begin{equation} 
+\Delta C \approx \frac{\partial C}{\partial w^l_{jk}} \Delta w^l_{jk}
+         \approx \sum_{mnp\ldots q} 
+                 \frac{\partial C}{\partial a^L_m} 
+                 \frac{\partial a^L_m}{\partial a^{L-1}_n}
+                 \frac{\partial a^{L-1}_n}{\partial a^{L-2}_p} \ldots
+                 \frac{\partial a^{l+1}_q}{\partial a^l_j} 
+                 \frac{\partial a^l_j}{\partial w^l_{jk}} \Delta w^l_{jk},
+\end{equation}
+
+As a result,
+
+\begin{equation} 
+\frac{\partial C}{\partial w^l_{jk}} = \sum_{mnp\ldots q} 
+  \frac{\partial C}{\partial a^L_m} 
+  \frac{\partial a^L_m}{\partial a^{L-1}_n}
+  \frac{\partial a^{L-1}_n}{\partial a^{L-2}_p} \ldots
+  \frac{\partial a^{l+1}_q}{\partial a^l_j} 
+  \frac{\partial a^l_j}{\partial w^l_{jk}}
+\end{equation}
+
+Backpropgation can be viewed as a way of calculating all sum $mnp \ldots q$ stepwise by absorbing previous computation - stepwise of hyper matrix multiplication.
+
